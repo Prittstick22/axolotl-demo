@@ -161,6 +161,24 @@ async def test_replay_is_labelled_wherever_the_model_is_named(replaying):
     assert "no Gemini calls" in status["detail"]
 
 
+async def test_a_replayed_report_says_whose_narrative_it_is(tmp_path, monkeypatch):
+    recording = await replay.build_recording(
+        RUN, {"plan_id": "plan_x", "interaction_id": "plan_2"}, EVENTS,
+        {"narrative": "Two units passed."}, fetch,
+    )
+    path = tmp_path / "r.json"
+    path.write_text(json.dumps(recording), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "argon_replay_file", str(path))
+    monkeypatch.setattr(get_settings(), "argon_replay_delay_seconds", 0)
+    replay._load.cache_clear()
+    try:
+        text = await sessions.narrate_report({"run_id": "run_new"})
+    finally:
+        replay._load.cache_clear()
+    assert text.startswith("_Narrative replayed from run_recorded._")
+    assert text.endswith("Two units passed.")
+
+
 def test_live_mode_is_unchanged_without_a_replay_file():
     assert not replay.active()
     assert replay.model_label() == get_settings().gemini_model

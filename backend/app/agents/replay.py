@@ -78,9 +78,13 @@ class Cursor:
             )
         raw = self.turns[self.position]
         self.position += 1
+        text = raw.get("text", "")
+        if self.script == REPORT:
+            # The narrative names the recorded run; say so on this run's report.
+            text = f"_Narrative replayed from {recording()['source_run_id']}._\n\n{text}"
         return Turn(
             id=raw["id"],
-            text=raw.get("text", ""),
+            text=text,
             calls=[ToolCall(c["id"], c["name"], c.get("arguments")) for c in raw.get("calls", [])],
         )
 
