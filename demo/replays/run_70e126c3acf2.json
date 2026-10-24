@@ -1,0 +1,993 @@
+{
+ "source_run_id": "run_70e126c3acf2",
+ "source_plan_id": "plan_92e5df651c23",
+ "repository_id": "repo_3852f5968630",
+ "model": "gemini-4-argon",
+ "verdict": "completed",
+ "recorded_at": "2026-10-24T17:36:28.442026+00:00",
+ "scripts": {
+  "plan": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXenVEY2F1akJEYnE0bnNFUDllRzQwQWc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_661946",
+      "name": "submit_plan",
+      "arguments": {
+       "coverage_gaps": [
+        "Only unit_local_chess__cli reports visible test cases directly (12 cases), though test_chess.py also imports local_chess, common, notation, and rules.",
+        "Most lower-level units (legacy_enum, common, move, pieces, board, game_state, renderer, game, __init__, __main__, setup) have 0 direct visible cases in unit metadata and rely on integration/indirect test coverage."
+       ],
+       "risks": [
+        "High reverse-dependant fan-out in core modules (legacy_enum, common, move, pieces, board) means subtle behavioural changes in equality, hashing, or iteration could cascade across the codebase.",
+        "Python 2 metaclass syntax (__metaclass__) in pieces.py or legacy_enum.py and implicit relative imports in __init__.py can break module loading under Python 3 until migrated.",
+        "Division semantics (/ vs //), iterator views (dict.keys/items/values, map/filter/range), and raw_input vs input in CLI must preserve exact Python 2 observable behaviour."
+       ],
+       "per_unit_notes": {
+        "unit_local_chess__renderer": "Migrate board rendering and string/unicode formatting without altering board output.",
+        "unit_local_chess": "Fix Python 2 implicit relative imports (from game / game_state) to explicit package imports while preserving exported symbols.",
+        "unit_local_chess__legacy_enum": "Foundational enum helper with 10 reverse dependants; preserve metaclass/attribute lookup and comparison semantics in Python 3.",
+        "unit_local_chess__move": "Migrate move structures and enum/namedtuple usage.",
+        "unit_local_chess__pieces": "Migrate ABCs (__metaclass__ -> metaclass=ABCMeta), piece movement logic, and comparisons.",
+        "unit_local_chess__game": "Migrate game loop/controller logic, status enums, and move application.",
+        "unit_local_chess__game_state": "Migrate state tracking, collections usage, and history/move state.",
+        "unit_local_chess__board": "Migrate board representation, iterators, integer division, and object model to Python 3.",
+        "unit_setup": "Ensure setup.py metadata and setuptools configuration are Python 3 compatible.",
+        "unit_local_chess__notation": "Migrate algebraic/coordinate notation parsing and string handling.",
+        "unit_local_chess__cli": "Migrate CLI input/output (raw_input -> input, print, string/unicode handling) preserving prompts and output formatting.",
+        "unit_local_chess__rules": "Migrate rule validation, check/checkmate detection, and iterator/collection semantics.",
+        "unit_local_chess____main__": "Ensure entry-point imports and execution semantics work under Python 3.",
+        "unit_local_chess__common": "Migrate shared utilities, coordinate helpers, and enum usage for Python 3 compatibility."
+       },
+       "suggested_order": [
+        "unit_local_chess__legacy_enum",
+        "unit_local_chess__common",
+        "unit_local_chess__move",
+        "unit_local_chess__pieces",
+        "unit_local_chess__board",
+        "unit_local_chess__game_state",
+        "unit_local_chess__rules",
+        "unit_local_chess__notation",
+        "unit_local_chess__renderer",
+        "unit_local_chess__game",
+        "unit_local_chess__cli",
+        "unit_local_chess",
+        "unit_local_chess____main__",
+        "unit_setup"
+       ],
+       "rationale": "The migration follows a strict bottom-up topological order based on static module dependencies and implicit intra-package dependencies. Starting with foundational leaf units (unit_local_chess__legacy_enum, unit_local_chess__common, unit_local_chess__move, unit_local_chess__pieces, unit_local_chess__board) ensures core types, enums, and board representations are Python 3 compatible before migrating higher-level state, rules, notation, rendering, game control, and CLI units. unit_local_chess (__init__.py) has implicit relative imports of game and game_state in Python 2, so scheduling it after unit_local_chess__game and unit_local_chess__game_state ensures its targets are already migrated before __init__.py and __main__.py are updated."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXOGVEY2FyYkVCOURqbnNFUDl1ZXY4QXc",
+    "text": "The migration plan has been accepted. Ready to proceed with the units in the planned dependency order.",
+    "calls": []
+   }
+  ],
+  "unit:unit_local_chess__legacy_enum": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXQU9IY2F2QzdNdjdqbnNFUDE1T3dpUWM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_453077",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__legacy_enum"
+      }
+     },
+     {
+      "id": "call_453078",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     },
+     {
+      "id": "call_453079",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__common"
+      }
+     },
+     {
+      "id": "call_453080",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__move"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXRGVIY2FvaWhESW5ubnNFUGdQWHZtQWc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_588336",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__game"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXVS1IY2FzdVJGY0tzM2JvUDF0S0JvUW8",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_722480",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Modernize class definition (remove redundant object base) and string formatting (use f-strings) for Python 3 while preserving exact Enum lookup, _member construction, identity, hashing, and __repr__ semantics.",
+       "summary": "Migrate local_chess/legacy_enum.py to Python 3 idioms",
+       "files": [
+        {
+         "new_content": "\"\"\"Dependency-free named constants for the chess game.\"\"\"\n\n\nclass Enum:\n    def __new__(cls, value):\n        for member in cls.__dict__.values():\n            if isinstance(member, cls) and member.value == value:\n                return member\n        raise ValueError(f'{value!r} is not a valid {cls.__name__}')\n\n    @classmethod\n    def _member(cls, name, value):\n        member = object.__new__(cls)\n        member.name = name\n        member.value = value\n        return member\n\n    def __repr__(self):\n        return f'{type(self).__name__}.{self.name}'\n",
+         "path": "local_chess/legacy_enum.py"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXbC1IY2FxX2xJTVNwa2RVUGs2dVNzUXc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_650000",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__common": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMnVIY2FzSFNHSU9DdmRJUHpjTHhxQVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_813550",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__common"
+      }
+     },
+     {
+      "id": "call_813551",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     },
+     {
+      "id": "call_813552",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__legacy_enum"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXSXVMY2F2SG5Mcy1jMjhvUDM1eTA4QVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_802660",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_tests__test_chess"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXZ09MY2FyeTVOZG42eE44UHk1bVN3QUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_853452",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Modernise string formatting in square_name while preserving Color enum semantics, public symbols, signatures, and coordinate helpers for Python 3 compatibility.",
+       "summary": "Update local_chess/common.py for Python 3 compatibility",
+       "files": [
+        {
+         "new_content": "\"\"\"Shared primitives: colors, squares and board geometry.\n\nSquares are ``(row, col)`` tuples; row 0 is rank 8 and col 0 is file ``a``.\n\"\"\"\nfrom .legacy_enum import Enum\n\nBOARD_SIZE = 8\nFILES = 'abcdefgh'\nPROMOTION_LETTERS = 'qrbn'\n\n\nclass Color(Enum):\n\n    @property\n    def opposite(self):\n        return Color.BLACK if self is Color.WHITE else Color.WHITE\n\n    @property\n    def label(self):\n        return 'White' if self is Color.WHITE else 'Black'\n\n    @property\n    def pawn_direction(self):\n        return -1 if self is Color.WHITE else 1\n\n    @property\n    def pawn_start_row(self):\n        return 6 if self is Color.WHITE else 1\n\n    @property\n    def home_row(self):\n        return 7 if self is Color.WHITE else 0\n\n    @property\n    def castling_letters(self):\n        \"\"\"(king side, queen side) letters as used in castling rights.\"\"\"\n        return ('K', 'Q') if self is Color.WHITE else ('k', 'q')\n\n\nColor.WHITE = Color._member('WHITE', 'w')\nColor.BLACK = Color._member('BLACK', 'b')\n\n\ndef inside(square):\n    row, col = square\n    return 0 <= row < BOARD_SIZE and 0 <= col < BOARD_SIZE\n\n\ndef square_name(square):\n    row, col = square\n    return f'{FILES[col]}{BOARD_SIZE - row}'\n\n\ndef parse_square(text):\n    \"\"\"Turn ``\"e4\"`` into ``(4, 4)``; return ``None`` for invalid text.\"\"\"\n    if len(text) != 2 or text[0] not in FILES or text[1] not in '12345678':\n        return None\n    return (BOARD_SIZE - int(text[1]), FILES.index(text[0]))\n",
+         "path": "local_chess/common.py"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXak9MY2F0RGlMUGp1eHMwUHY3RHZvQUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_960814",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__move": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMWVMY2FyZTlIYWZxa2RVUHV1YUprQWc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_742058",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__move"
+      }
+     },
+     {
+      "id": "call_742059",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMi1MY2F2LU9HOURqbnNFUDl1ZXY4QXc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_956954",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__legacy_enum"
+      }
+     },
+     {
+      "id": "call_956955",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__common"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXSmVQY2Fval9FdVcza2RVUG50dnV5QTg",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_458902",
+      "name": "propose_patch",
+      "arguments": {
+       "summary": "Modernize local_chess/move.py for Python 3",
+       "files": [
+        {
+         "new_content": "from collections import namedtuple\n\nfrom .legacy_enum import Enum\nfrom .common import square_name\n\n\nclass MoveFlag(Enum):\n    pass\n\n\nMoveFlag.NORMAL = MoveFlag._member('NORMAL', '')\nMoveFlag.EN_PASSANT = MoveFlag._member('EN_PASSANT', 'ep')\nMoveFlag.CASTLE = MoveFlag._member('CASTLE', 'castle')\n\n\nclass MoveRequest(namedtuple('MoveRequestBase', 'origin target promotion')):\n    \"\"\"What the player typed, before it is matched against the legal moves.\"\"\"\n    __slots__ = ()\n\n    def __new__(cls, origin, target, promotion=''):\n        return super().__new__(cls, origin, target, promotion)\n\n\nclass Move(namedtuple('MoveBase', 'origin target promotion flag')):\n    __slots__ = ()\n\n    def __new__(cls, origin, target, promotion='', flag=MoveFlag.NORMAL):\n        return super().__new__(cls, origin, target, promotion, flag)\n\n    def matches(self, request):\n        return (self.origin, self.target, self.promotion) == (request.origin, request.target, request.promotion)\n\n    def __str__(self):\n        return square_name(self.origin) + square_name(self.target) + self.promotion\n",
+         "path": "local_chess/move.py"
+        }
+       ],
+       "rationale": "Modernize super() calls in MoveRequest.__new__ and Move.__new__ to Python 3 zero-argument super() and place MoveRequest's docstring at the start of the class body while preserving all public symbols, signatures, and namedtuple behaviour."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXWnVQY2FxeXhLWUdZa2RVUGxwYVM4UW8",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_896589",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__pieces": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXc3VQY2F0Q3dCZC1FdmRJUGg1anNxQTg",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_854401",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__pieces"
+      }
+     },
+     {
+      "id": "call_854402",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMk9QY2F1YXhIYW13dmRJUGpKTExnUXM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_910891",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Replace Python 2 __metaclass__ = ABCMeta with Python 3 class Piece(metaclass=ABCMeta), update super(King, self) to super(), and modernise generator delegation with yield from while preserving all piece behaviours and interfaces.",
+       "summary": "Migrate local_chess/pieces.py to Python 3",
+       "files": [
+        {
+         "new_content": "\"\"\"Piece behavior: every piece knows which squares it attacks and which moves it can make.\"\"\"\nfrom abc import ABCMeta, abstractmethod\nfrom .common import PROMOTION_LETTERS, Color, inside\nfrom .move import Move, MoveFlag\nKNIGHT_STEPS = [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)]\nSTRAIGHT = [(-1, 0), (1, 0), (0, -1), (0, 1)]\nDIAGONAL = [(-1, -1), (-1, 1), (1, -1), (1, 1)]\nKING_STEPS = STRAIGHT + DIAGONAL\n\n\nclass Piece(metaclass=ABCMeta):\n    \"\"\"Immutable piece; positions live on the board, not on the piece.\"\"\"\n\n    def __init__(self, color):\n        self.color = color\n\n    @property\n    def symbol(self):\n        return self.kind.upper() if self.color is Color.WHITE else self.kind\n\n    def __eq__(self, other):\n        return type(self) is type(other) and self.color is other.color\n\n    def __hash__(self):\n        return hash((type(self), self.color))\n\n    def __repr__(self):\n        return f'{type(self).__name__}({self.color.name})'\n\n    @abstractmethod\n    def attacks(self, board, origin):\n        \"\"\"Squares this piece attacks (may include occupied squares of either color).\"\"\"\n\n    def moves(self, board, origin, state):\n        for target in self.attacks(board, origin):\n            if self._can_land_on(board, target):\n                yield Move(origin, target)\n\n    def _can_land_on(self, board, target):\n        occupant = board.piece_at(target)\n        return occupant is None or (occupant.color is not self.color and (not isinstance(occupant, King)))\n\n\nclass LeaperPiece(Piece):\n\n    def attacks(self, board, origin):\n        row, col = origin\n        for d_row, d_col in self.STEPS:\n            square = (row + d_row, col + d_col)\n            if inside(square):\n                yield square\n\n\nclass SlidingPiece(Piece):\n\n    def attacks(self, board, origin):\n        row, col = origin\n        for d_row, d_col in self.DIRECTIONS:\n            square = (row + d_row, col + d_col)\n            while inside(square):\n                yield square\n                if board.piece_at(square) is not None:\n                    break\n                square = (square[0] + d_row, square[1] + d_col)\n\n\nclass Knight(LeaperPiece):\n    kind = 'n'\n    STEPS = KNIGHT_STEPS\n\n\nclass Bishop(SlidingPiece):\n    kind = 'b'\n    DIRECTIONS = DIAGONAL\n\n\nclass Rook(SlidingPiece):\n    kind = 'r'\n    DIRECTIONS = STRAIGHT\n\n\nclass Queen(SlidingPiece):\n    kind = 'q'\n    DIRECTIONS = STRAIGHT + DIAGONAL\n\n\nclass King(LeaperPiece):\n    kind = 'k'\n    STEPS = KING_STEPS\n\n    def moves(self, board, origin, state):\n        yield from super().moves(board, origin, state)\n        yield from self._castling_moves(board, origin, state)\n\n    def _castling_moves(self, board, origin, state):\n        home = self.color.home_row\n        if origin != (home, 4) or board.is_in_check(self.color):\n            return\n        enemy = self.color.opposite\n        rook = Rook(self.color)\n        short_right, long_right = self.color.castling_letters\n\n        def free_and_safe(empty_cols, crossed_cols):\n            return all((board.piece_at((home, c)) is None for c in empty_cols)) and (not any((board.is_attacked((home, c), enemy) for c in crossed_cols)))\n        if short_right in state.castling_rights and board.piece_at((home, 7)) == rook and free_and_safe([5, 6], [5, 6]):\n            yield Move(origin, (home, 6), flag=MoveFlag.CASTLE)\n        if long_right in state.castling_rights and board.piece_at((home, 0)) == rook and free_and_safe([1, 2, 3], [3, 2]):\n            yield Move(origin, (home, 2), flag=MoveFlag.CASTLE)\n\n\nclass Pawn(Piece):\n    kind = 'p'\n\n    def attacks(self, board, origin):\n        row, col = origin\n        for d_col in (-1, 1):\n            square = (row + self.color.pawn_direction, col + d_col)\n            if inside(square):\n                yield square\n\n    def moves(self, board, origin, state):\n        row, col = origin\n        direction = self.color.pawn_direction\n        ahead = (row + direction, col)\n        if inside(ahead) and board.piece_at(ahead) is None:\n            yield from self._pawn_moves(origin, ahead)\n            two_ahead = (row + 2 * direction, col)\n            if row == self.color.pawn_start_row and board.piece_at(two_ahead) is None:\n                yield from self._pawn_moves(origin, two_ahead)\n        enemy_pawn = Pawn(self.color.opposite)\n        for target in self.attacks(board, origin):\n            occupant = board.piece_at(target)\n            if occupant is not None and occupant.color is not self.color and (not isinstance(occupant, King)):\n                yield from self._pawn_moves(origin, target)\n            elif state.en_passant == target and board.piece_at((row, target[1])) == enemy_pawn:\n                yield from self._pawn_moves(origin, target, MoveFlag.EN_PASSANT)\n\n    @staticmethod\n    def _pawn_moves(origin, target, flag=MoveFlag.NORMAL):\n        if target[0] in (0, 7):\n            for promotion in PROMOTION_LETTERS:\n                yield Move(origin, target, promotion, flag)\n        else:\n            yield Move(origin, target, '', flag)\n\n\nPIECE_TYPES = {cls.kind: cls for cls in (Pawn, Knight, Bishop, Rook, Queen, King)}\n\n\ndef piece_from_symbol(symbol):\n    \"\"\"``\"N\"`` -> white knight, ``\"n\"`` -> black knight.\"\"\"\n    color = Color.WHITE if symbol.isupper() else Color.BLACK\n    return PIECE_TYPES[symbol.lower()](color)\n",
+         "path": "local_chess/pieces.py"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXOS1QY2F1X01HWjN5dmRJUDI1R0owQVE",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1215974",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__board": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXR09UY2FwYXhJdHVqdmRJUHE1Ylg2QU0",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_944726",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__board"
+      }
+     },
+     {
+      "id": "call_944727",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXTi1UY2FzanpJdTdseE44UG5ZdmQ0UVE",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_909215",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__common"
+      }
+     },
+     {
+      "id": "call_909216",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__pieces"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXVC1UY2FwM2JMOXVYdmRJUDQ1Q3I0QUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_738531",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Modernize Board class definition for Python 3 by removing explicit object inheritance while preserving all imports, methods, signatures, and observable behaviour.",
+       "summary": "Migrate local_chess/board.py to Python 3 style.",
+       "files": [
+        {
+         "path": "local_chess/board.py",
+         "new_content": "from .common import BOARD_SIZE, Color, inside\nfrom .pieces import King, Piece, piece_from_symbol\n\nINITIAL_ROWS = [\n    'rnbqkbnr',\n    'pppppppp',\n    '........',\n    '........',\n    '........',\n    '........',\n    'PPPPPPPP',\n    'RNBQKBNR',\n]\n\n\nclass Board:\n    \"\"\"An 8x8 grid of optional pieces. Mutable, but ``copy()`` is cheap.\"\"\"\n\n    def __init__(self, grid):\n        self._grid = grid\n\n    @classmethod\n    def from_rows(cls, rows):\n        return cls([[None if ch == '.' else piece_from_symbol(ch) for ch in row] for row in rows])\n\n    @classmethod\n    def initial(cls):\n        return cls.from_rows(INITIAL_ROWS)\n\n    def copy(self):\n        return Board([row[:] for row in self._grid])\n\n    def piece_at(self, square):\n        return self._grid[square[0]][square[1]]\n\n    def place(self, square, piece):\n        self._grid[square[0]][square[1]] = piece\n\n    def pieces(self, color=None):\n        for row in range(BOARD_SIZE):\n            for col in range(BOARD_SIZE):\n                piece = self._grid[row][col]\n                if piece is not None and (color is None or piece.color is color):\n                    yield ((row, col), piece)\n\n    def find_king(self, color):\n        for square, piece in self.pieces(color):\n            if isinstance(piece, King):\n                return square\n        return None\n\n    def is_attacked(self, square, by):\n        return any(square in piece.attacks(self, origin) for origin, piece in self.pieces(by))\n\n    def is_in_check(self, color):\n        king = self.find_king(color)\n        return True if king is None else self.is_attacked(king, color.opposite)\n\n    def rows(self):\n        \"\"\"Text rows, ``.`` for empty squares (white uppercase, black lowercase).\"\"\"\n        return [''.join('.' if p is None else p.symbol for p in row) for row in self._grid]\n"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXYnVUY2F1N0lHTnJZeHMwUC1ZV1EyQXM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_642154",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__game_state": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXbC1UY2F2cU1DX3lGa2RVUF9hLXU4QVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_837478",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__game_state"
+      }
+     },
+     {
+      "id": "call_837479",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXbk9UY2FvUFVOYUw2bnNFUGstV2h3QXM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1156845",
+      "name": "propose_patch",
+      "arguments": {
+       "files": [
+        {
+         "path": "local_chess/game_state.py",
+         "new_content": "from collections import namedtuple\n\nfrom .board import Board\nfrom .common import Color, parse_square\nfrom .move import Move, MoveFlag\nfrom .pieces import PIECE_TYPES, King, Pawn\n_ROOK_CORNERS = [((7, 7), 'K'), ((7, 0), 'Q'), ((0, 7), 'k'), ((0, 0), 'q')]\n\nclass GameState(namedtuple('GameStateBase', 'board turn castling_rights en_passant halfmove fullmove')):\n    __slots__ = ()\n\n    def __new__(cls, board, turn=Color.WHITE, castling_rights='KQkq', en_passant=None, halfmove=0, fullmove=1):\n        return super().__new__(cls, board, turn, castling_rights, en_passant, halfmove, fullmove)\n    'One position plus the extra rules data. ``apply`` returns a new state.'\n\n    @classmethod\n    def initial(cls):\n        return cls(Board.initial())\n\n    @classmethod\n    def from_fen(cls, fen):\n        parts = fen.split()\n        rows = [''.join(('.' * int(ch) if ch.isdigit() else ch for ch in rank)) for rank in parts[0].split('/')]\n        return cls(board=Board.from_rows(rows), turn=Color(parts[1]), castling_rights='' if parts[2] == '-' else parts[2], en_passant=None if parts[3] == '-' else parse_square(parts[3]), halfmove=int(parts[4]) if len(parts) > 4 else 0, fullmove=int(parts[5]) if len(parts) > 5 else 1)\n\n    def apply(self, move):\n        board = self.board.copy()\n        (from_row, from_col), (to_row, to_col) = (move.origin, move.target)\n        piece = board.piece_at(move.origin)\n        captured = board.piece_at(move.target)\n        board.place(move.origin, None)\n        board.place(move.target, PIECE_TYPES[move.promotion](self.turn) if move.promotion else piece)\n        if move.flag is MoveFlag.EN_PASSANT:\n            board.place((from_row, to_col), None)\n        if move.flag is MoveFlag.CASTLE:\n            rook_from, rook_to = (7, 5) if to_col == 6 else (0, 3)\n            board.place((to_row, rook_to), board.piece_at((to_row, rook_from)))\n            board.place((to_row, rook_from), None)\n        rights = self.castling_rights\n        if isinstance(piece, King):\n            for letter in piece.color.castling_letters:\n                rights = rights.replace(letter, '')\n        for corner, letter in _ROOK_CORNERS:\n            if corner in (move.origin, move.target):\n                rights = rights.replace(letter, '')\n        en_passant = None\n        if isinstance(piece, Pawn) and abs(to_row - from_row) == 2:\n            en_passant = ((from_row + to_row) // 2, from_col)\n        irreversible = isinstance(piece, Pawn) or captured is not None or move.flag is MoveFlag.EN_PASSANT\n        return GameState(board=board, turn=self.turn.opposite, castling_rights=rights, en_passant=en_passant, halfmove=0 if irreversible else self.halfmove + 1, fullmove=self.fullmove + (1 if self.turn is Color.BLACK else 0))\n"
+        }
+       ],
+       "summary": "Modernise GameState.__new__ super() call for Python 3",
+       "rationale": "Modernise Python 2 super(GameState, cls) call to Python 3 zero-argument super() while preserving all namedtuple fields, defaults, and state transition semantics."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXcmVUY2F0ckJDc25IbnNFUHZPMjIwQWM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1009340",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__rules": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXdWVUY2F2ZjBHODZBa2RVUF82Q1gtUVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_920338",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__rules"
+      }
+     },
+     {
+      "id": "call_920339",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXdnVUY2FzN1hKb3VMa2RVUHBPZUhnQWc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1030059",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Modernize generator delegation with `yield from` and string formatting with f-strings while preserving all public functions, signatures, imports, and exact rule semantics for Python 3.14.",
+       "summary": "Migrate local_chess/rules.py to idiomatic Python 3.",
+       "files": [
+        {
+         "new_content": "\"\"\"Pure functions that apply the rules of chess to a ``GameState``.\"\"\"\nfrom .board import Board\nfrom .common import square_name\nfrom .game_state import GameState\nfrom .move import Move, MoveFlag\nfrom .pieces import Bishop, King\n\n\ndef pseudo_legal_moves(state):\n    for origin, piece in state.board.pieces(state.turn):\n        yield from piece.moves(state.board, origin, state)\n\n\ndef legal_moves(state):\n    return [\n        move\n        for move in pseudo_legal_moves(state)\n        if not state.apply(move).board.is_in_check(state.turn)\n    ]\n\n\ndef is_in_check(state):\n    return state.board.is_in_check(state.turn)\n\n\ndef insufficient_material(board):\n    \"\"\"Obvious dead positions: bare kings, king + one minor piece, or only\n    bishops standing on the same square color.\"\"\"\n    others = [\n        (piece, (row + col) % 2)\n        for (row, col), piece in board.pieces()\n        if not isinstance(piece, King)\n    ]\n    if not others:\n        return True\n    if len(others) == 1 and others[0][0].kind in 'bn':\n        return True\n    first_color = others[0][1]\n    return all(isinstance(piece, Bishop) and shade == first_color for piece, shade in others)\n\n\ndef position_key(state):\n    \"\"\"Identity of a position for repetition counting.\n\n    The en passant square only counts if the capture is actually legal.\"\"\"\n    key = f\"{''.join(state.board.rows())}{state.turn.value}/{state.castling_rights}/\"\n    if state.en_passant is not None and any(\n        m.flag is MoveFlag.EN_PASSANT for m in legal_moves(state)\n    ):\n        key += square_name(state.en_passant)\n    return key\n",
+         "path": "local_chess/rules.py"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXek9UY2F0R2xDWnZqa2RVUHpvelVpUTA",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_932425",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__notation": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMXVUY2F2SHlES0dqdmRJUHlzMmNtQUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_775784",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__notation"
+      }
+     },
+     {
+      "id": "call_775785",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMi1UY2F2akJHXzdteE44UHZiamZ1QUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1194840",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__common"
+      }
+     },
+     {
+      "id": "call_1194841",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__cli"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXQ09YY2FwcmZGNk9JdmRJUHJjQ3RnQVE",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_886151",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__move"
+      }
+     },
+     {
+      "id": "call_886152",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__game_state"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXRU9YY2FxcUdIOTZmdmRJUDFaMnppQVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1027385",
+      "name": "propose_patch",
+      "arguments": {
+       "summary": "Migrate local_chess/notation.py to Python 3",
+       "files": [
+        {
+         "new_content": "\"\"\"Converting between text typed by the player and moves.\"\"\"\nfrom .common import PROMOTION_LETTERS, parse_square\nfrom .game_state import GameState\nfrom .move import MoveRequest\nfrom .pieces import Pawn\n\n\ndef parse_move(text, state):\n    text = text.lower().strip().replace(' ', '')\n    home = state.turn.home_row\n    castle = text.replace('-', '')\n    if castle in ('oo', '00'):\n        return MoveRequest((home, 4), (home, 6))\n    if castle in ('ooo', '000'):\n        return MoveRequest((home, 4), (home, 2))\n    if len(text) not in (4, 5):\n        return None\n    origin, target = parse_square(text[:2]), parse_square(text[2:4])\n    if origin is None or target is None:\n        return None\n    promotion = ''\n    if len(text) == 5:\n        promotion = text[4]\n        if promotion not in PROMOTION_LETTERS:\n            return None\n    elif isinstance(state.board.piece_at(origin), Pawn) and target[0] in (0, 7):\n        promotion = 'q'\n    return MoveRequest(origin, target, promotion)\n",
+         "path": "local_chess/notation.py"
+        }
+       ],
+       "rationale": "Ensure local_chess/notation.py is clean and Python 3 compatible while preserving all imports, signatures, and move parsing behaviour."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXSWVYY2FvcnNLTGFsdmRJUGdkZmR3UTg",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_217875",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__renderer": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXVWVYY2F2SzJDSVB5dmRJUHJ2MlRvQUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_137357",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__renderer"
+      }
+     },
+     {
+      "id": "call_137358",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXVi1YY2F1ZjlIWXJieE44UG9lV3JrQUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_808220",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__board"
+      }
+     },
+     {
+      "id": "call_808221",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__cli"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXWXVYY2F0bWVGTl83eE44UHc2ZVJxQUU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_917273",
+      "name": "propose_patch",
+      "arguments": {
+       "files": [
+        {
+         "new_content": "from .board import Board\n\n_FILE_LABELS = '    a b c d e f g h'\n\n\nclass BoardRenderer:\n    \"\"\"Draws a board as plain text.\"\"\"\n\n    def render(self, board):\n        lines = ['', _FILE_LABELS, '']\n        for index, row in enumerate(board.rows()):\n            rank = 8 - index\n            lines.append(f' {rank}  {\" \".join(row)}  {rank}')\n        lines += ['', _FILE_LABELS, '', 'UPPERCASE = White; lowercase = Black']\n        return '\\n'.join(lines)\n",
+         "path": "local_chess/renderer.py"
+        }
+       ],
+       "rationale": "Modernise BoardRenderer to Python 3 style by removing explicit object inheritance and using f-string formatting while preserving all public symbols, method signatures, and exact rendered board output.",
+       "summary": "Modernise local_chess/renderer.py for Python 3.14 compatibility."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIWYmVYY2FvdVVEZVdndmRJUDV2NkpXQQ",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_764533",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__game": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXZHVYY2FwdVpNdWI2eE44UHRiQ0syUVE",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1159625",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__game"
+      }
+     },
+     {
+      "id": "call_1159626",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXZmVYY2FvM0dPTUtqdmRJUDRMYklpUVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1198313",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__legacy_enum"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIUaE9YY2F1TXFrdnk5MGctQjRjcFo",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1246506",
+      "name": "propose_patch",
+      "arguments": {
+       "files": [
+        {
+         "new_content": "from .legacy_enum import Enum\nfrom . import rules\nfrom .common import Color\nfrom .game_state import GameState\nfrom .move import Move, MoveRequest\n\n\nclass GameStatus(Enum):\n    pass\n\n\nGameStatus.ONGOING = GameStatus._member('ONGOING', 'ongoing')\nGameStatus.CHECKMATE = GameStatus._member('CHECKMATE', 'checkmate')\nGameStatus.STALEMATE = GameStatus._member('STALEMATE', 'stalemate')\nGameStatus.INSUFFICIENT_MATERIAL = GameStatus._member('INSUFFICIENT_MATERIAL', 'insufficient material')\nGameStatus.FIVEFOLD_REPETITION = GameStatus._member('FIVEFOLD_REPETITION', 'fivefold repetition')\nGameStatus.SEVENTY_FIVE_MOVE_RULE = GameStatus._member('SEVENTY_FIVE_MOVE_RULE', '75-move rule')\n\n\nclass Game:\n    \"\"\"A game in progress: the position history, undo and end-of-game detection.\"\"\"\n    CLAIM_REPETITIONS = 3\n    CLAIM_HALFMOVES = 100\n    FORCED_REPETITIONS = 5\n    FORCED_HALFMOVES = 150\n\n    def __init__(self, state=None):\n        self._history = [state or GameState.initial()]\n        self._keys = [rules.position_key(self._history[0])]\n\n    @property\n    def state(self):\n        return self._history[-1]\n\n    def legal_moves(self):\n        return rules.legal_moves(self.state)\n\n    def find_move(self, request):\n        return next((m for m in self.legal_moves() if m.matches(request)), None)\n\n    def play(self, move):\n        self._history.append(self.state.apply(move))\n        self._keys.append(rules.position_key(self.state))\n\n    def undo(self):\n        if len(self._history) == 1:\n            return False\n        self._history.pop()\n        self._keys.pop()\n        return True\n\n    def in_check(self):\n        return rules.is_in_check(self.state)\n\n    def repetitions(self):\n        return self._keys.count(self._keys[-1])\n\n    def can_claim_draw(self):\n        return self.repetitions() >= self.CLAIM_REPETITIONS or self.state.halfmove >= self.CLAIM_HALFMOVES\n\n    def status(self):\n        if not self.legal_moves():\n            return GameStatus.CHECKMATE if self.in_check() else GameStatus.STALEMATE\n        if rules.insufficient_material(self.state.board):\n            return GameStatus.INSUFFICIENT_MATERIAL\n        if self.repetitions() >= self.FORCED_REPETITIONS:\n            return GameStatus.FIVEFOLD_REPETITION\n        if self.state.halfmove >= self.FORCED_HALFMOVES:\n            return GameStatus.SEVENTY_FIVE_MOVE_RULE\n        return GameStatus.ONGOING\n\n    def winner(self):\n        return self.state.turn.opposite if self.status() is GameStatus.CHECKMATE else None\n",
+         "path": "local_chess/game.py"
+        }
+       ],
+       "rationale": "Modernise class definition syntax to Python 3 style while preserving all public symbols, GameStatus enum members, and Game methods and behaviour.",
+       "summary": "Migrate local_chess/game.py to Python 3"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXa3VYY2Fzci1Gc21IeHMwUGpNV0FzQVE",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1251591",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess__cli": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXbmVYY2FyT1BFZm5Oa2RVUG1kZnBzUVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_832076",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__cli"
+      }
+     },
+     {
+      "id": "call_832077",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXcC1YY2FyRHNGN0tCa2RVUHc2M2g4UVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1048143",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Remove Python 2 __future__ import, raw_input compatibility shim, and explicit object inheritance while preserving module exports, ConsoleUI signature, prompts, and output formatting.",
+       "files": [
+        {
+         "new_content": "\"\"\"Console front end. Input and output are injected so the loop can be tested.\"\"\"\n\nfrom .game import Game, GameStatus\nfrom .move import Move\nfrom .notation import parse_move\nfrom .renderer import BoardRenderer\n\nconsole_input = input\n\nEND_MESSAGES = {\n    GameStatus.STALEMATE: 'STALEMATE! Draw.',\n    GameStatus.INSUFFICIENT_MATERIAL: 'DRAW: insufficient material.',\n    GameStatus.FIVEFOLD_REPETITION: 'DRAW: fivefold repetition.',\n    GameStatus.SEVENTY_FIVE_MOVE_RULE: 'DRAW: 75-move rule.',\n}\nHELP_TEXT = (\n    'Enter moves like e2e4 (from e2 to e4).\\n'\n    'Castling: O-O or O-O-O (or e1g1 / e1c1).\\n'\n    'Promotion: e7e8q (q=queen, r=rook, b=bishop, n=knight).\\n'\n    'Without a promotion letter, a queen is selected.\\n'\n    'moves: show legal moves; undo: take back the last move.\\n'\n    'claim: claim a draw (3 repetitions or 50-move rule).\\n'\n    'quit: exit the game.'\n)\n\n\nclass ConsoleUI:\n\n    def __init__(self, game=None, input_fn=console_input, output_fn=print, renderer=None):\n        self.game = game or Game()\n        self._input = input_fn\n        self._print = output_fn\n        self._renderer = renderer or BoardRenderer()\n        self._commands = {\n            'quit': self._quit,\n            'quitter': self._quit,\n            'exit': self._quit,\n            'help': self._help,\n            'aide': self._help,\n            'moves': self._list_moves,\n            'coups': self._list_moves,\n            'undo': self._undo,\n            'annuler': self._undo,\n            'claim': self._claim,\n            'nul': self._claim,\n        }\n\n    def run(self):\n        self._print('=== LOCAL CHESS GAME ===')\n        self._print('Moves: e2e4, g1f3, e7e8q, O-O, O-O-O')\n        self._print('Commands: help, moves, undo, claim, quit')\n        while True:\n            self._print(self._renderer.render(self.game.state.board))\n            if self._announce_end_or_warnings():\n                return\n            side = self.game.state.turn.label\n            try:\n                entered = self._input(f'{side} to move > ').strip()\n            except EOFError:\n                self._print('Game over.')\n                return\n            handler = self._commands.get(entered.lower())\n            if handler is not None:\n                if handler():\n                    return\n                continue\n            self._play_text_move(entered)\n\n    def _announce_end_or_warnings(self):\n        status = self.game.status()\n        if status is GameStatus.CHECKMATE:\n            self._print(f'CHECKMATE! {self.game.winner().label} wins.')\n        elif status is not GameStatus.ONGOING:\n            self._print(END_MESSAGES[status])\n        else:\n            if self.game.in_check():\n                self._print('CHECK!')\n            if self.game.can_claim_draw():\n                self._print('You may claim a draw: type claim.')\n        return status is not GameStatus.ONGOING\n\n    def _play_text_move(self, text):\n        request = parse_move(text, self.game.state)\n        move = self.game.find_move(request) if request else None\n        if move is None:\n            self._print('Illegal move. Type moves or help.')\n            return\n        self._print(f'Move played: {move}')\n        self.game.play(move)\n\n    def _quit(self):\n        self._print('Game over.')\n        return True\n\n    def _help(self):\n        self._print(HELP_TEXT)\n        return False\n\n    def _list_moves(self):\n        self._print('Legal moves: ' + ' '.join(sorted(str(m) for m in self.game.legal_moves())))\n        return False\n\n    def _undo(self):\n        self._print('Last move undone.' if self.game.undo() else 'No move to undo.')\n        return False\n\n    def _claim(self):\n        if self.game.can_claim_draw():\n            self._print('DRAW!')\n            return True\n        self._print('You cannot claim a draw yet.')\n        return False\n",
+         "path": "local_chess/cli.py"
+        }
+       ],
+       "summary": "Modernise local_chess/cli.py for Python 3."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIWdU9YY2F2NkJIdW1FN004UHQ0emNHUQ",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_401939",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXd3VYY2F2cmhFdWJreE44UHllM0NpUUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_991162",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess"
+      }
+     },
+     {
+      "id": "call_991163",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     },
+     {
+      "id": "call_991164",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess____main__"
+      }
+     },
+     {
+      "id": "call_991165",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_tests__test_chess"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXeWVYY2FzUEFBdHJZeHMwUC1ZV1EyQXM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_696310",
+      "name": "propose_patch",
+      "arguments": {
+       "files": [
+        {
+         "path": "local_chess/__init__.py",
+         "new_content": "\"\"\"Local two-player chess for the console.\"\"\"\n\nfrom .game import Game, GameStatus\nfrom .game_state import GameState\n\n__all__ = ['Game', 'GameStatus', 'GameState']\n__version__ = '2.0.0'\n"
+        }
+       ],
+       "summary": "Verify and format local_chess/__init__.py for Python 3 compatibility.",
+       "rationale": "Ensure explicit relative imports and module exports in local_chess/__init__.py are compatible with Python 3."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXMGVYY2FzQ2NMdC1FdmRJUGg1anNxQTg",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_838986",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_local_chess____main__": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXNXVYY2F0dWFLY0d4eE44UDVOZVIwUUk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_730977",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess____main__"
+      }
+     },
+     {
+      "id": "call_730978",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     },
+     {
+      "id": "call_730979",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess"
+      }
+     },
+     {
+      "id": "call_730980",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__cli"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXN09YY2FzUG5IZDJCeHMwUGpJS3MyUTQ",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_156276",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_setup"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXOU9YY2FwVFhKZnVXdmRJUF90bVN3UVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1168321",
+      "name": "propose_patch",
+      "arguments": {
+       "files": [
+        {
+         "new_content": "from .cli import ConsoleUI\n\n\ndef main():\n    ConsoleUI().run()\n\n\nif __name__ == '__main__':\n    main()\n",
+         "path": "local_chess/__main__.py"
+        }
+       ],
+       "summary": "Format and verify local_chess/__main__.py for Python 3 compatibility.",
+       "rationale": "Ensure PEP 8 formatting while preserving the package relative import of ConsoleUI and the main() entry point in Python 3."
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXX2VYY2FzN2NEdVNUeE44UDM2bjZpQWM",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_724637",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "unit:unit_setup": [
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXQnViY2FxWF9BZkc2eE44UHFiVzhpUVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_988642",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_setup"
+      }
+     },
+     {
+      "id": "call_988643",
+      "name": "get_behaviour_cases",
+      "arguments": {}
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXRS1iY2F2U29IUGpzeE44UDFMT2JpUVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1138067",
+      "name": "propose_patch",
+      "arguments": {
+       "rationale": "Update setup.py python_requires and classifiers from Python 2.7-only to Python 3 while keeping package name, version, packages, and entry_points intact.",
+       "files": [
+        {
+         "new_content": "\"\"\"Packaging for the Axolotl Python 3 migration fixture.\"\"\"\nfrom setuptools import setup\n\nsetup(\n    name='local-chess',\n    version='2.0.0',\n    description='Two-player local chess for the console',\n    packages=['local_chess'],\n    python_requires='>=3.10',\n    entry_points={'console_scripts': ['local-chess=local_chess.__main__:main']},\n    classifiers=['Programming Language :: Python :: 3'],\n)\n",
+         "path": "setup.py"
+        }
+       ],
+       "summary": "Update setup.py metadata for Python 3 compatibility"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_Chd6dURjYXVqQkRicTRuc0VQOWVHNDBBZxIXRy1iY2FyN1hHcVNXdmRJUG5wUGs0QVU",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_860966",
+      "name": "run_verification",
+      "arguments": {}
+     }
+    ]
+   }
+  ],
+  "report": [
+   {
+    "id": "replay_report_run_70e126c3acf2",
+    "text": "### Migration Run Report (`run_70e126c3acf2`)\n\n#### Summary\n- **Run State:** `completed`\n- **Units Processed:** 14 units (`unit_local_chess`, `unit_local_chess____main__`, `unit_local_chess__board`, `unit_local_chess__cli`, `unit_local_chess__common`, `unit_local_chess__game`, `unit_local_chess__game_state`, `unit_local_chess__legacy_enum`, `unit_local_chess__move`, `unit_local_chess__notation`, `unit_local_chess__pieces`, `unit_local_chess__renderer`, `unit_local_chess__rules`, and `unit_setup`).\n- **Unit Status:** All 14 units passed verification in 1 attempt each.\n- **Final Verification (`ver_5d3369f9d9d3`):** Passed `final_integration` and `sandbox_policy` gates.\n  - **Behaviour Cases:** Agreement on 24 tested cases, 0 differing, 0 inconclusive.\n  - **Existing Test Suite:** 8 passed in 0.41s.\n\n#### Recorded Unit Details (from Event Excerpt)\n- **`unit_local_chess____main__` (`rev_3f6c1823a8e7`, `ver_02750596d20f`):**\n  - Proposed a 103-byte patch to `local_chess/__main__.py`.\n  - Passed `compile`, `sandbox_policy`, and `existing_tests` (8 passed in 0.41s); `differential` and `impacted_tests` gates were skipped.\n- **`unit_setup` (`rev_1d79f9b438c8`, `ver_5a9e79878616`):**\n  - Proposed a 400-byte patch to `setup.py`.\n  - Passed `compile`, `sandbox_policy`, and `existing_tests` (8 passed in 0.40s); `differential` and `impacted_tests` gates were skipped.\n\n#### Untested Areas & Limitations\n- **Skipped Differential & Impacted Tests:** Neither `unit_local_chess____main__` nor `unit_setup` had behaviour cases or reverse dependants with behaviour cases (`test_case_count`: 0 for `module_setup`), resulting in skipped `differential` and `impacted_tests` gates for both units.\n- **CLI Entry Point & Packaging Execution:** Because `local_chess/__main__.py` and `setup.py` lacked unit-specific behaviour cases, direct invocation of the `__main__` script entry point and package installation/metadata handling via `setuptools` were not exercised by differential behaviour cases.\n- **Truncated Event History:** The supplied event log excerpt only covers sequences 346 through 395; detailed patch contents and per-unit gate breakdowns for the earlier 12 units are not present in the recorded excerpt.\n- **Scope of Verification:** Verification demonstrates agreement on the 24 tested behaviour cases and 8 existing tests only, and does not constitute proof of equivalence across all possible inputs or interactive console sessions.",
+    "calls": []
+   }
+  ]
+ }
+}
