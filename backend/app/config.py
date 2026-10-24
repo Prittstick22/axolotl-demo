@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # keeps the test suite and CI from making one Gemini call per chunk.
     index_on_import: bool = True
 
+    # Demo branch only (app/agents/replay.py): replay Argon's answers from one recorded
+    # run instead of calling Gemini. Empty means live. The delay paces each replayed
+    # turn so the Run screen has something to show.
+    argon_replay_file: str = ""
+    argon_replay_delay_seconds: float = 2.0
+
     # --- MongoDB Atlas (Dev 3) ---
     mongodb_uri: str = ""
     mongodb_database: str = "axolotl"

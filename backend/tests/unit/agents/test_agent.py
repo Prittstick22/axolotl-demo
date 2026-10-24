@@ -86,7 +86,7 @@ def script(monkeypatch, turns):
     client = SimpleNamespace(
         turn=AsyncMock(side_effect=turns), close=AsyncMock(), thinking_level="medium"
     )
-    monkeypatch.setattr(sessions, "GeminiClient", lambda: client)
+    monkeypatch.setattr(sessions, "GeminiClient", lambda **_: client)
     return client
 
 

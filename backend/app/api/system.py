@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from app.agents.health import gemini_status
-from app.config import get_settings
+from app.agents.replay import model_label
 from app.persistence import db
 from app.persistence.search_health import search_index_status
 from app.sandbox import runner_status, runtimes
@@ -24,7 +24,6 @@ router = APIRouter(tags=["system"])
 
 @router.get("/system/status")
 async def get_system_status() -> dict[str, Any]:
-    settings = get_settings()
 
     mongo_ok, mongo_error = await db.ping()
     mongodb = "ok" if mongo_ok else "unavailable"
@@ -37,7 +36,7 @@ async def get_system_status() -> dict[str, Any]:
         "mongodb": mongodb,
         "search_indexes": indexes,
         "runner": {"mode": runner["mode"], "available": runner["available"]},
-        "gemini": {"model": settings.gemini_model, "reachable": gemini["reachable"]},
+        "gemini": {"model": model_label(), "reachable": gemini["reachable"]},
     }
 
     # Non-contract diagnostics, additive and safe for the UI to ignore.

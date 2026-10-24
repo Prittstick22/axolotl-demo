@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 
+from app.agents import replay
 from app.agents.contexts import PlanContext, UnitSessionContext, UnitSessionOutcome
 from app.agents.gemini_client import GeminiClient, ModelUnavailable, function_result
 from app.agents.prompts import SYSTEM, data_block
@@ -19,7 +20,7 @@ def excerpt(value) -> str:
 
 
 async def propose_plan(ctx: PlanContext) -> PlanProposal:
-    client = GeminiClient()
+    client = GeminiClient(script=replay.PLAN)
     try:
         plan_schema = PlanProposal.model_json_schema()
         plan_schema["properties"].pop("interaction_id", None)
@@ -107,7 +108,7 @@ async def run_unit_session(ctx: UnitSessionContext, controller) -> UnitSessionOu
     try:
         if controller.is_verified():
             return outcome("verified", "Independent verification already passed.")
-        client = GeminiClient()
+        client = GeminiClient(script=replay.unit_script(ctx.unit.unit_id))
         # Empty model turns cannot turn into an unbounded loop.
         for _ in range(ctx.max_tool_calls + 2):
             if calls_used >= ctx.max_tool_calls:
@@ -179,7 +180,7 @@ async def run_unit_session(ctx: UnitSessionContext, controller) -> UnitSessionOu
 
 
 async def narrate_report(evidence: dict) -> str:
-    client = GeminiClient()
+    client = GeminiClient(script=replay.REPORT)
     try:
         turn = await client.turn(
             "Write a brief report using only this recorded evidence. Cite only supplied "

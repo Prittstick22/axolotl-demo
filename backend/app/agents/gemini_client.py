@@ -135,10 +135,17 @@ def _without_sdk_retries(client):
 
 
 class GeminiClient:
-    def __init__(self, client=None):
+    def __init__(self, client=None, *, script: str | None = None):
+        from app.agents import replay
+
         settings = get_settings()
         self.model = settings.gemini_model
         self.thinking_level = settings.gemini_thinking_level
+        # Demo replay: recorded turns for this session, and no Gemini client at all.
+        self.replay = replay.Cursor(script or "unscripted") if replay.active() else None
+        if self.replay is not None:
+            self.client = None
+            return
         if client is None:
             from google import genai
 
@@ -148,7 +155,8 @@ class GeminiClient:
         self.client = client
 
     async def close(self):
-        await self.client.aio.aclose()
+        if self.client is not None:
+            await self.client.aio.aclose()
 
     async def turn(
         self,
@@ -159,6 +167,9 @@ class GeminiClient:
         previous_id: str | None = None,
         repair: bool = False,
     ) -> Turn:
+        if self.replay is not None:
+            await asyncio.sleep(get_settings().argon_replay_delay_seconds)
+            return self.replay.next()
         body = {
             "model": self.model,
             "input": input,

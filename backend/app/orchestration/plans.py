@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 
+from app.agents.replay import model_label
 from app.api.targets import require_supported_target
 from app.config import get_settings
 from app.errors import (
@@ -44,7 +45,6 @@ NO_AGENT = (
 
 async def create_plan(repo_id: str, target_id: str) -> MigrationPlan:
     """Build units from the real graph, ask Argon to order them, validate, persist."""
-    settings = get_settings()
     target = require_supported_target(target_id)  # 422 UNSUPPORTED_TARGET (T-08)
 
     try:
@@ -109,7 +109,7 @@ async def create_plan(repo_id: str, target_id: str) -> MigrationPlan:
         risks=risks,
         coverage_gaps=coverage_gaps + _structural_gaps(units, cases_known),
         status="draft",
-        model=settings.gemini_model,
+        model=model_label(),
         interaction_id=interaction_id,
         created_at=store.utcnow(),
     )

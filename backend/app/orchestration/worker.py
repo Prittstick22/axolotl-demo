@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app.agents.replay import model_label
 from app.config import get_settings
 from app.errors import (
     PLAN_NOT_APPROVED,
@@ -113,7 +114,7 @@ async def start_run(plan_id: str) -> RunSummary:
             tests_failed=0,
             tests_inconclusive=0,
             last_event_sequence=0,
-            model=settings.gemini_model,
+            model=model_label(),
             runner_mode=runner,
             max_patch_attempts=settings.max_patch_attempts,
             created_at=store.utcnow(),

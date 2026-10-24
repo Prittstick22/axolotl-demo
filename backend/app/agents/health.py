@@ -32,6 +32,18 @@ async def gemini_status(use_cache: bool = True) -> dict[str, Any]:
     settings = get_settings()
     result: dict[str, Any]
 
+    from app.agents import replay
+
+    if replay.active():
+        # Demo replay needs no key and makes no calls; say exactly that.
+        result = {
+            "reachable": True,
+            "model": replay.model_label(),
+            "detail": "replaying recorded Argon turns; no Gemini calls are made",
+        }
+        _CACHE = result
+        return result
+
     if not settings.gemini_api_key:
         result = {
             "reachable": False,
