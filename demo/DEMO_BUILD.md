@@ -1,6 +1,6 @@
 # The demo build
 
-This branch, `demo/argon-replay`, is **main plus a replay mode**. Every screen and feature is the same as the product. The one difference: Argon's answers are **replayed from a recorded live run**, so a full chess migration takes about 2 minutes instead of 15–60, and costs nothing.
+This repository, **`Prittstick22/axolotl-demo`**, is [Axolotl](https://github.com/Prittstick22/axolotl) **plus a replay mode**. It's kept separate so the replay code never reaches the product's main. Every screen and feature is the same as the product. The one difference: Argon's answers are **replayed from a recorded live run**, so a full chess migration takes about 2 minutes instead of 15–60, and costs nothing.
 
 **What's replayed, and what runs for real:**
 
@@ -21,11 +21,10 @@ The status chip, plans, runs and Ask answers all name the model **`gemini-4-argo
 
 You need Docker Desktop (**started**), [uv](https://docs.astral.sh/uv/), Node 20+ and git.
 
-1. **Get this branch:**
+1. **Get this repository:**
    ```bash
-   git clone https://github.com/Prittstick22/axolotl.git axolotl-demo
+   git clone https://github.com/Prittstick22/axolotl-demo.git
    cd axolotl-demo
-   git checkout demo/argon-replay
    ```
 2. **Start a local MongoDB** (Atlas Local, which supports the search indexes):
    ```bash

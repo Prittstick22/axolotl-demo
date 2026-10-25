@@ -1,5 +1,7 @@
 # Axolotl
 
+> **This is the demo build of Axolotl, not the product.** It's [Prittstick22/axolotl](https://github.com/Prittstick22/axolotl) plus a replay mode: Argon's answers come from a recorded live run, so the demo makes no Gemini calls. Setup and the demo path: [`demo/DEMO_BUILD.md`](demo/DEMO_BUILD.md). **Never merge this repository into the product.**
+
 **Agentic legacy-code migration with verified behaviour preservation.**
 
 Axolotl imports a legacy Python project, builds a real dependency graph from its AST,
