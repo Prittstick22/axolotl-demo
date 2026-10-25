@@ -9,6 +9,7 @@ import { Choice } from '@/components/Choice';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TONE_TEXT, TONE_TINT, type Tone } from '@/lib/status';
 import { matchingTarget } from '@/lib/targets';
+import { scopedSearch } from '@/lib/utils';
 import type { MigrationPlan, PlanStatus } from '@/types/contracts';
 
 const PLAN_STATUS: Record<PlanStatus, [Icon, string, Tone]> = {
@@ -23,6 +24,8 @@ const shown = (description: string) => description.replace('Legacy-style Python 
 
 // 409 from Create plan or Start migration when the code was imported on another computer (#84): it's not the target's fault.
 const elsewhere = (e: Error | null) => e instanceof ApiError && e.code === 'SNAPSHOT_UNAVAILABLE';
+// Only a 422 is about the target. Argon unavailable or rate-limited (503), Atlas down, or the code elsewhere go under the header.
+const onTarget = (e: Error | null): e is ApiError => e instanceof ApiError && e.code === 'UNSUPPORTED_TARGET';
 
 function Failure({ error }: { error: Error | null }) {
   return error ? (
@@ -53,7 +56,7 @@ function Plan({ plan, runLink, onStart, starting, startError }: {
 }) {
   const qc = useQueryClient();
   const approve = useMutation({
-    mutationFn: () => approvePlan(plan.plan_id),
+    mutationFn: () => approvePlan(plan.plan_id, true),
     onSuccess: (p) => qc.setQueryData(['plan', p.plan_id], p),
   });
   const [StatusIcon, status, tone] = PLAN_STATUS[plan.status];
@@ -203,7 +206,7 @@ export default function PlanScreen() {
             {targetPython && ` → Python ${targetPython} (target)`}
           </p>
         )}
-        {elsewhere(create.error) && <Failure error={create.error} />}
+        {!onTarget(create.error) && <Failure error={create.error} />}
         {targets.isError && <p className="text-sm text-muted-foreground">Couldn’t load the targets: {targets.error.message}</p>}
         <fieldset className="flex flex-col gap-2" disabled={create.isPending}>
           <legend className="sr-only">Migration target</legend>
@@ -219,7 +222,7 @@ export default function PlanScreen() {
                 create.reset();
               }}
               title={t.label}
-              error={create.isError && target === t.target_id && !elsewhere(create.error) ? create.error.message : undefined}
+              error={onTarget(create.error) && target === t.target_id ? create.error.message : undefined}
             >
               {t.supported ? <span className="block text-sm">{shown(t.description)}</span> : null}
             </Choice>
@@ -239,7 +242,7 @@ export default function PlanScreen() {
       {plan.data ? (
         <Plan
           plan={plan.data}
-          runLink={params.get('run') ? `/repos/${encodeURIComponent(repoId)}/run?${params}` : undefined}
+          runLink={params.get('run') ? `/repos/${encodeURIComponent(repoId)}/run${scopedSearch(params)}` : undefined}
           onStart={() => start.mutate()}
           starting={start.isPending}
           startError={start.error}

@@ -7,6 +7,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getGraph, getIndexStatus, getRepository, getRuntime } from '@/api/client';
 import { buttonVariants } from '@/components/ui/button';
 import { moduleRows } from '@/lib/graph';
+import { scopedSearch } from '@/lib/utils';
 import type { RepositoryRecord } from '@/types/contracts';
 
 const ANALYSIS: Record<RepositoryRecord['analysis_status'], [typeof CheckCircleIcon, string, string]> = {
@@ -38,7 +39,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 export default function Overview() {
   const { repoId = '' } = useParams();
   const [params] = useSearchParams();
-  const search = params.size ? `?${params}` : '';
+  const search = scopedSearch(params);
   const repo = useQuery({ queryKey: ['repository', repoId], queryFn: () => getRepository(repoId) });
   const graph = useQuery({ queryKey: ['graph', repoId, null], queryFn: () => getGraph(repoId) });
   const runtime = useQuery({ queryKey: ['runtime', repoId], queryFn: () => getRuntime(repoId) });
@@ -134,7 +135,14 @@ export default function Overview() {
                 <tbody>
                   {rows.map((m) => (
                     <tr key={m.id}>
-                      <td className="font-mono text-sm">{m.label}</td>
+                      <td className="font-mono text-sm">
+                        <Link
+                          to={{ pathname: `/repos/${encodeURIComponent(repoId)}/graph`, search: scopedSearch(params, { module: m.id }) }}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          {m.label}
+                        </Link>
+                      </td>
                       <td className="text-right">{m.functions}</td>
                       <td className="text-right">{m.classes}</td>
                       <td className="text-right">{m.localImports}</td>

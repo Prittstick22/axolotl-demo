@@ -1886,3 +1886,144 @@ spent an Argon call on a run that then failed copying the baseline.
 
 836 offline backend tests (10 new; a mutation that drops the rebuild fails the rebuild
 test), ruff clean.
+
+## 24 Oct 2026 — Dev 2: the export is the project, not the patch (#40)
+
+People clicked a download labelled "Export migrated project" and got `migration.patch`.
+Two separate causes, both fixed here.
+
+- **The zip shipped the diff.** `write_export` looked up the recorded `patch` artefact
+  and copied it in as `axolotl/migration.patch`. It no longer does: the zip is the
+  project files, `axolotl/MIGRATION.md` and `axolotl/report.json`. The patch is
+  unchanged as its own artefact, still at `GET /artefacts/{id}/download`.
+- **MIGRATION.md promised it.** `migration_notes` took `with_patch` and, when true,
+  closed with "and `migration.patch` the diff from the imported code" — a file that is
+  now not in the zip. Nothing else passed the parameter, so it is gone rather than
+  threaded through as `False`.
+- **The Downloads panel offered four buttons**, three of them raw artefacts, so the
+  wrong one was easy to click. It now shows one: "Download migrated codebase (.zip)".
+  With nothing accepted it says so in words instead of rendering a button that 404s.
+  `listArtefacts` is untouched in the API client; this screen just stops calling it.
+
+The regression test keeps a recorded patch artefact in its setup on purpose, because a
+patch *existing* is what used to put it in the zip. Re-adding the file to `write_export`
+fails it with "the export is the project; the diff is its own artefact" rather than two
+truncated lists, which is why the named check runs before the namelist comparison.
+
+833 offline backend tests, ruff clean. Frontend: 25 tests, lint and build clean.
+Verified both panel states against a throwaway local API; no run was executed.
+
+## 24 Oct 2026 — Dev 2: a grounded Ask endpoint over our own hybrid search (#123)
+
+`POST /repositories/{id}/ask`. One question about one imported repository, answered
+from that repository's code.
+
+It needed no retrieval pipeline. Five of the migration agent's ten declared tools are
+read-only *and* need nothing but a repository id — no run, no unit, no controller — so
+the endpoint is the existing agent loop with the controller removed and those five
+tools offered. `ReadOnlyDispatcher` subclasses `ToolDispatcher` rather than changing
+it, so Dev 1's lane is untouched.
+
+Two tools are excluded although they only read. `get_counterexamples` is derived from
+held-out failures, which have leaked through four separate read paths already (#45,
+#56, #57, #94); a chat would be a fifth, so it never gets near them.
+`get_behaviour_cases` needs `ctx.unit.unit_id`, and a question has no unit.
+
+Three decisions worth recording:
+
+- **`grounded` is false when retrieval found nothing**, and the answer says so rather
+  than reaching for general knowledge. That is the verifier's rule applied to prose: an
+  inconclusive result is never reported as a pass.
+- **Citations are read off the tool results**, not asked of the model. A model invited
+  to write its own citations can cite a file it never opened.
+- **`retrieval` is in the response contract**, not a debug field: tool, query,
+  `mode_used`, `native_hybrid`, `hit_count`. It is the only place in the app where the
+  hybrid search is visible doing work inside a model loop.
+
+The allowlist is pinned by a test, because every held-out leak so far was a path nobody
+had asserted on rather than a rule somebody broke. Forcing `grounded = True` fails
+three tests; the allowlist test fails if a write tool is added to the set.
+
+872 offline backend tests (39 new), ruff clean. The model is stubbed throughout, so
+none of this has yet run against the real Gemini: the live path is unexercised and the
+pane (Dev 5, #123) is not built.
+
+## 24 Oct 2026 — Dev 1: documentation for the legacy and the migrated code (#39)
+
+Per-module docs for both sides of a migration, in the app and in the export.
+
+- **Facts from the parse tree, for free.** `GET /repositories/{id}/docs` and
+  `GET /runs/{id}/docs` read both trees on request with `analyse_module` and
+  `build_edges`, as #34 does: docstring as written, public classes, methods and functions
+  with signatures, what each module depends on and what uses it. No model call.
+- **The migrated side says what changed.** The unit's verdict and attempts, Argon's own
+  summary of the accepted patch (from `patch_proposed` in the journal, so free), and
+  the module's dependency changes from #34's `compare_trees`.
+- **One purpose sentence per module, on request.** `POST /repositories/{id}/docs`
+  writes the missing ones in the background with `describe_chunks`, unchanged: the same
+  untrusted-code prompt, pacing and quota handling as search. It reuses a cached purpose
+  or the search index's module description first. Test modules are never sent.
+  `GEMINI_DESCRIPTION_MODEL=gemini-3.8-flash`, so no Argon credit is spent.
+- **Labelled and fenced.** Model text says who wrote it and "not verified", and is
+  HTML-escaped. Docstrings sit in a fence longer than any run of backticks they contain,
+  so code can't inject Markdown.
+- **In the export.** `GET /runs/{id}/export` adds `axolotl/docs/` (an index, plus legacy
+  and migrated pages) from cached purposes only. A docs failure never fails the export.
+
+Live on chess (`run_70e126c3acf2`): both GETs made 0 model calls; generation made 14
+Flash calls, all successful, `ready` 14/14; a second POST made 0; the export grew to 50
+files, 31 of them docs, still with no `.patch`. 914 offline backend tests (17 new;
+mutations that send test modules or fix the fence at three backticks each fail a test),
+ruff clean.
+
+Found on the way, not fixed here: `dotted_name_for` turns `local_chess/__main__.py` into
+`local_chess..main.`, so its `from .cli import ConsoleUI` resolves to the package
+instead of `local_chess/cli.py`.
+
+## 24 Oct 2026 — Dev 1: migration summary (#35)
+
+`GET /runs/{run_id}/summary`: one overview of what a run changed, for the screen in
+#129 and as `axolotl/SUMMARY.md` in the export.
+
+- **Every number is already recorded.** Outcome and attempts come from the report.
+  Checks per unit are the last `gate_result` per gate (the report builder's own
+  `_final_gate_results`, so a repaired unit isn't counted twice). Counterexamples are
+  per unit, resolved only where the unit passed. Argon's summary is the last
+  `patch_proposed` (the accepted patch for a unit that passed), labelled model-written.
+- **Lines added and removed** are counted from the same unified diff the Changes screen
+  shows, excluding file headers. **Python before and after, and the dependency changes,**
+  come from #34's `compare_trees`.
+- **On another laptop** the trees aren't there, so lines, Python and dependencies are
+  `null` with a warning; the report and journal parts still answer. It's never a 500.
+
+Live on `run_70e126c3acf2`: 14/14 verified, 14 files, +136/-59 lines, and checks per
+unit plus the final gate sum to the report's 288. Python `2.7 -> >=3.10`,
+`raw_input -> input`. 0 model calls. The export is now 51 files with `SUMMARY.md`.
+963 offline backend tests (10 new; counting every gate result instead of the last per
+gate fails one), ruff clean.
+
+## 24 Oct 2026 — Dev 1: a dunder file's dotted name comes from its path (#140)
+
+`dotted_name_for` rebuilt a module's importable name by decoding its id, replacing
+`__` with `.`. Ids write `.` as `__`, so a file whose own name contains `__` decoded
+wrongly: `local_chess/__main__.py` came back as `local_chess..main.`. Its
+`from .cli import ConsoleUI` then resolved to the package `local_chess` instead of
+`local_chess/cli.py`, and its symbols were named `local_chess..main..main` in search,
+Ask and the docs.
+
+Both functions now share one path-based `_dotted`: `module_id_for` encodes it as
+before, and `dotted_name_for` returns it as it is. **Module ids don't move** (pinned for
+seven paths), so units, plans and runs are untouched. Only dunder modules' symbol names,
+and the symbol, chunk and edge ids derived from them, change. The chess entry on the
+cluster is rebuilt under the same id afterwards.
+
+981 offline backend tests (16 new; decoding from the id again fails 5 of them), 25
+sandbox tests, ruff clean.
+
+## 25 Oct 2026 — Dev 1: Argon requests time out after 240 s, not 120 s
+
+On `run_a6435773b085` one Argon turn on `local_chess/cli.py`, the largest chess module,
+ran past the 120 s request timeout. The unit was blocked and `__main__` was skipped,
+while every other unit passed first time. Normal turns take 15-70 s, so the limit was
+too tight for a long patch. `REQUEST_TIMEOUT_SECONDS` is now 240. A timeout is still not
+retried (#47): the call may have been charged, and a retry would double the wait.

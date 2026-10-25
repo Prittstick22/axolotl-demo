@@ -210,6 +210,225 @@ export interface SearchResults {
   hits: SearchHit[];
 }
 
+export interface DependencyChangeItem {
+  name: string;
+  basis: 'static_ast' | 'py2_rename_table' | 'name_match';
+}
+
+export interface DependencyReplacement {
+  before: string;
+  after: string;
+  basis: 'py2_rename_table' | 'name_match';
+}
+
+export interface DependencyModuleChange {
+  module_id: string;
+  path: string;
+  status: 'added' | 'removed' | 'changed';
+  imports_added: DependencyChangeItem[];
+  imports_removed: DependencyChangeItem[];
+  stdlib_renamed: DependencyReplacement[];
+  builtins_replaced: DependencyReplacement[];
+  methods_replaced: DependencyReplacement[];
+}
+
+export interface DependencyEdgeChange {
+  source: string;
+  target: string;
+  type: EdgeType;
+}
+
+export interface DependencyChanges {
+  run_id: string;
+  repository_id: string;
+  base_revision: string;
+  revision: string | null;
+  modules: DependencyModuleChange[];
+  edges: { added: DependencyEdgeChange[]; removed: DependencyEdgeChange[]; basis?: string };
+  packages: { added: string[]; removed: string[]; kept: string[]; basis?: string; note?: string };
+  python: {
+    before: { declared: string | null; evidence: string[] };
+    after: { declared: string | null; evidence: string[] };
+    basis: string;
+  } | null;
+  warnings: string[];
+}
+
+export interface SecurityVulnerability {
+  id: string;
+  aliases: string[];
+  summary: string | null;
+  fixed_versions: string[];
+  url: string;
+}
+
+export interface CheckedPackage {
+  name: string;
+  version: string;
+  source: string;
+  vulnerabilities: SecurityVulnerability[];
+}
+
+export interface SecurityPackages {
+  status: 'checked' | 'no_packages' | 'nothing_pinned' | 'not_run';
+  message: string;
+  checked: CheckedPackage[];
+  unpinned: { name: string; specifier: string | null; source: string; note: string }[];
+  warnings: string[];
+}
+
+export interface SecurityTree {
+  packages: SecurityPackages;
+  runtime: { declared_python: string | null; evidence: string[]; note: string | null };
+}
+
+export interface RunSecurity {
+  run_id: string;
+  repository_id: string;
+  base_revision: string;
+  revision: string | null;
+  disclaimer: string;
+  legacy: SecurityTree;
+  migrated: SecurityTree | null;
+  changes: {
+    fixed: { package: string; version: string; id: string; url: string; fixed_versions: string[] }[];
+    introduced: { package: string; version: string; id: string; url: string; fixed_versions: string[] }[];
+    still_present: { package: string; version: string; id: string; url: string; fixed_versions: string[] }[];
+    note: string | null;
+  } | null;
+  warnings: string[];
+}
+
+/** GET /repositories/{id}/security - the legacy tree only, before any run. */
+export interface RepositorySecurity {
+  repository_id: string;
+  legacy: SecurityTree;
+  disclaimer: string;
+}
+
+/** GET /repositories/{id}/symbols/{symbol_id} */
+export interface SymbolDetail extends SymbolRecord {
+  /** untrusted data - never render as HTML */
+  source: string;
+  warnings: string[];
+}
+
+/** POST /repositories/{id}/index - answers once the re-index has finished. */
+export interface IndexResult {
+  chunks: number;
+  described: number;
+  embedded: number;
+  warnings: string[];
+}
+
+export interface AskHistoryItem {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AskCitation {
+  path: string;
+  start_line: number | null;
+  end_line: number | null;
+  symbol: string | null;
+  snippet: string | null;
+}
+
+export interface AskRetrieval {
+  tool: string;
+  query: string;
+  /** null for a tool that isn't a search */
+  mode_used: SearchMode | null;
+  native_hybrid: boolean | null;
+  hit_count: number;
+}
+
+export interface AskResponse {
+  answer: string;
+  grounded: boolean;
+  citations: AskCitation[];
+  retrieval: AskRetrieval[];
+  model: string;
+  truncated: boolean;
+}
+
+// ---------- docs (#39) ----------
+export interface DocsCallable {
+  name: string;
+  signature: string;
+  async: boolean;
+  decorators: string[];
+  /** first docstring line, as written in the code: untrusted */
+  summary: string | null;
+  line: number;
+}
+
+export interface DocsFacts {
+  module_id: string;
+  path: string;
+  dotted: string;
+  is_test: boolean;
+  docstring: string | null;
+  classes: { name: string; bases: string[]; summary: string | null; line: number; methods: DocsCallable[] }[];
+  functions: DocsCallable[];
+  depends_on: string[];
+  packages: string[];
+  used_by: string[];
+  parsed: boolean;
+  python2_syntax: boolean;
+  warnings: string[];
+}
+
+export interface DocsPurpose {
+  text: string;
+  model: string;
+  origin: 'generated' | 'search_index';
+  generated_at: string | null;
+}
+
+export interface DocsChange {
+  run_id: string;
+  unit: { unit_id: string; status: UnitStatus; attempts: number } | null;
+  /** Argon's patch summary, only for a passed unit */
+  summary: string | null;
+  dependencies: DependencyModuleChange | null;
+}
+
+export interface DocsProse {
+  state: 'not_generated' | 'generating' | 'ready' | 'partial' | 'failed';
+  done: number;
+  total: number;
+  model: string | null;
+  warnings: string[];
+}
+
+export interface DocsModule {
+  module_id: string;
+  path: string;
+  is_test: boolean;
+  /** null for a module the migration added */
+  legacy: { facts: DocsFacts; purpose: DocsPurpose | null } | null;
+  migrated?: { facts: DocsFacts; change: DocsChange } | null;
+}
+
+export interface RepositoryDocs {
+  repository_id: string;
+  python: string | null;
+  prose: DocsProse;
+  modules: DocsModule[];
+  warnings: string[];
+}
+
+export interface RunDocs {
+  run_id: string;
+  repository_id: string;
+  revision: string | null;
+  python: { legacy: string | null; migrated: string | null };
+  prose: DocsProse;
+  modules: DocsModule[];
+  warnings: string[];
+}
+
 // ---------- planning ----------
 export interface MigrationTarget {
   target_id: string;
@@ -478,6 +697,56 @@ export interface Artefact {
   sha256: string;
   /** Rooted at the API's origin: /api/v1/artefacts/{id}/download */
   download_url: string;
+}
+
+// ---------- GET /runs/{run_id}/summary (#35) ----------
+export interface SummaryTests {
+  passed: number;
+  failed: number;
+  inconclusive: number;
+  gates: Record<string, string>;
+}
+
+export interface SummaryUnit {
+  unit_id: string;
+  paths: string[];
+  status: UnitStatus;
+  attempts: number;
+  accepted_revision: string | null;
+  tests: SummaryTests;
+  counterexamples: { found: number; resolved: number };
+  lines: { added: number; removed: number } | null;
+  /** Argon's own description of its patch - model-written, not a verified claim */
+  argon_summary: { text: string; basis: 'model_written'; accepted: boolean } | null;
+}
+
+/** One overview of what a run changed. 404 REPORT_NOT_READY until the report exists. */
+export interface MigrationSummary {
+  run_id: string;
+  repository_id: string;
+  verdict: RunReport['verdict'];
+  revision: string | null;
+  units: SummaryUnit[];
+  totals: {
+    units: number;
+    verified: number;
+    blocked: number;
+    skipped: number;
+    files_changed: number;
+    lines_added: number | null;
+    lines_removed: number | null;
+    tests_passed: number;
+    tests_failed: number;
+    tests_inconclusive: number;
+    counterexamples_found: number;
+    counterexamples_resolved: number;
+    final_integration: SummaryTests | null;
+  };
+  python: { before: string | null; after: string | null } | null;
+  caveats: string[];
+  limitations: string[];
+  warnings: string[];
+  markdown: string;
 }
 
 // ---------- GET /runs/{run_id}/units/{unit_id} ----------

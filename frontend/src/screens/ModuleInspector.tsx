@@ -2,6 +2,7 @@ import { CornersInIcon, CornersOutIcon, WarningIcon, XIcon } from '@phosphor-ico
 import { useQuery } from '@tanstack/react-query';
 import { cn } from 'cn';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 import { getModule } from '@/api/client';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -28,7 +29,7 @@ export function Sec({ label, className, children }: { label?: ReactNode; classNa
 const none = <span className="text-sm text-muted-foreground">None</span>;
 
 /** 04 Module inspector, the graph's side panel. Template: kit.js `inspector` (03) and s04 (expanded, with source). */
-export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded, onExpand, onClose }: {
+export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded, onExpand, onClose, onSelect }: {
   repoId: string;
   moduleId: string;
   graph: GraphPayload;
@@ -38,6 +39,8 @@ export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded
   expanded: boolean;
   onExpand: (expanded: boolean) => void;
   onClose: () => void;
+  /** Opens another module in this inspector; imports and dependants that are modules call it. */
+  onSelect: (moduleId: string) => void;
 }) {
   const detail = useQuery({ queryKey: ['module', repoId, moduleId], queryFn: () => getModule(repoId, moduleId) });
   const [symbolId, setSymbolId] = useState<string>();
@@ -52,6 +55,15 @@ export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded
   const imports = [...new Set(d?.imports.map((e) => e.target))];
   const dependants = [...new Set(d?.dependants.map((e) => e.source))];
   const warnings = [...new Set([...(node?.warnings ?? []), ...(d?.warnings ?? [])])];
+  const moduleName = (id: string) => {
+    const target = byId.get(id);
+    if (!target || target.kind === 'external_package') return <span className="font-mono text-sm">{target?.label ?? id}</span>;
+    return (
+      <button type="button" onClick={() => onSelect(id)} className="min-w-0 truncate text-left font-mono text-sm underline-offset-4 hover:underline">
+        {target.label}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -72,6 +84,22 @@ export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <StatusBadge status={node.status} />
             <span className="text-sm text-muted-foreground">{runId ? `In run ${runId}` : 'No run yet'}</span>
+            {node.path && (
+              <Link
+                to={{ pathname: `/repos/${encodeURIComponent(repoId)}/docs`, search: `?${new URLSearchParams({ ...(runId && { run: runId }), path: node.path })}` }}
+                className="ml-auto text-sm underline underline-offset-4"
+              >
+                Docs
+              </Link>
+            )}
+            {node.unit_id && runId && (
+              <Link
+                to={{ pathname: `/repos/${encodeURIComponent(repoId)}/run/${encodeURIComponent(node.unit_id)}`, search: `?${new URLSearchParams({ run: runId })}` }}
+                className={cn('text-sm underline underline-offset-4', !node.path && 'ml-auto')}
+              >
+                Verification
+              </Link>
+            )}
           </div>
         )}
       </Sec>
@@ -168,8 +196,8 @@ export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded
             {imports.length
               ? imports.map((id) => (
                   <div key={id} className="flex items-baseline justify-between gap-3">
-                    <span className="font-mono text-sm">{byId.get(id)?.label ?? id}</span>
-                    <span className="text-sm text-muted-foreground">{KIND[byId.get(id)?.kind ?? 'external_package']}</span>
+                    {moduleName(id)}
+                    <span className="flex-none text-sm text-muted-foreground">{KIND[byId.get(id)?.kind ?? 'external_package']}</span>
                   </div>
                 ))
               : none}
@@ -179,7 +207,7 @@ export function ModuleInspector({ repoId, moduleId, graph, runId, unit, expanded
             {dependants.length
               ? dependants.map((id) => (
                   <div key={id} className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-sm">{byId.get(id)?.label ?? id}</span>
+                    {moduleName(id)}
                     {byId.get(id) && <StatusBadge status={byId.get(id)!.status} />}
                   </div>
                 ))

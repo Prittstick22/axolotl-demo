@@ -9,6 +9,7 @@ the API is the boundary that protects the held-out suite, not the sandbox.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from app.models.contracts import (
 )
 from app.orchestration import events, plans, ports, store, worker
 from app.persistence.routing import DatabaseAwareRoute
+from app.reports import artefacts
 from app.reports.builder import get_report
 
 # `route_class` turns a driver failure into 503 DATABASE_UNAVAILABLE instead of a bare
@@ -32,6 +34,7 @@ from app.reports.builder import get_report
 # handler in errors.py: `/system/status` must answer 200 while *reporting* mongodb as
 # unavailable, and a global handler would turn that status report into a 503.
 router = APIRouter(tags=["plans", "runs"], route_class=DatabaseAwareRoute)
+log = logging.getLogger(__name__)
 
 
 class CreatePlanRequest(BaseModel):
@@ -346,6 +349,20 @@ async def get_run_report(run_id: str) -> RunReport:
     return report
 
 
+@router.get("/runs/{run_id}/summary")
+async def get_run_summary(run_id: str) -> dict[str, Any]:
+    """#35: one overview of what the run changed, before the Report's detail.
+
+    Per unit: outcome, attempts, checks run, counterexamples, lines added and removed,
+    and Argon's own summary of its patch (labelled model-written). Totals, the declared
+    Python version before and after, dependency changes and the report's caveats.
+    Every number is read from the report and the journal; 404 until the report exists.
+    """
+    from app.reports.summary import run_summary
+
+    return await run_summary(run_id)
+
+
 # --------------------------------------------------------------------------
 # artefacts
 # --------------------------------------------------------------------------
@@ -376,3 +393,63 @@ async def download_artefact(artefact_id: str) -> FileResponse:
             details={"artefact_id": artefact_id},
         )
     return FileResponse(path, filename=path.name)
+
+
+@router.get("/runs/{run_id}/export")
+async def export_run(run_id: str) -> FileResponse:
+    """#40: the migrated project as a ZIP. 404 until the report exists, or when no
+    unit was accepted and the project is still the legacy code."""
+    run = await store.get_run(run_id)
+    report = await get_report(run_id)
+    if report is None:
+        raise AppError(
+            REPORT_NOT_READY,
+            f"No report for {run_id} yet; the export is built from it",
+            status_code=404,
+            details={"run_id": run_id},
+        )
+    accepted = [
+        e for e in await events.list_all_events(run_id)
+        if e.event_type == "snapshot_accepted"
+    ]
+    if not accepted:
+        raise AppError(
+            ARTEFACT_NOT_FOUND,
+            f"No unit was accepted in {run_id}, so there is no migrated project",
+            status_code=404,
+            details={"run_id": run_id},
+        )
+    revision = accepted[-1].payload.get("revision")
+    try:
+        tree = Path(await ports.workspace_path(run_id, revision))
+    except ports.IntegrationUnavailable as exc:
+        raise AppError(
+            "INTEGRATION_UNAVAILABLE", str(exc), status_code=503,
+            details={"owner": exc.owner},
+        ) from exc
+    if not tree.is_dir():
+        raise AppError(
+            ARTEFACT_NOT_FOUND,
+            f"The accepted tree {revision} of {run_id} is no longer on this machine",
+            status_code=404,
+            details={"run_id": run_id, "revision": revision},
+        )
+    try:
+        from app.docs import export_files
+
+        docs = await export_files(run_id)
+    except Exception as exc:  # noqa: BLE001 - the docs are extra; never fail the export
+        log.warning("export of %s ships without docs: %s", run_id, exc)
+        docs = None
+    try:
+        from app.reports.summary import run_summary
+
+        summary = (await run_summary(run_id))["markdown"]
+    except Exception as exc:  # noqa: BLE001 - the summary is extra too (#35)
+        log.warning("export of %s ships without a summary: %s", run_id, exc)
+        summary = None
+    path = await artefacts.write_export(
+        report, await store.get_plan(run.plan_id), revision, tree,
+        docs=docs, summary=summary,
+    )
+    return FileResponse(path, filename=f"{run_id}-migrated.zip")

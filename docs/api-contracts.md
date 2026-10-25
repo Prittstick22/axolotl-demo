@@ -27,6 +27,7 @@ parses one shape.
 | `UNSUPPORTED_TARGET` | 422 | Target unknown, or known with `supported=false` (**T-08**). |
 | `REPOSITORY_NOT_EXECUTABLE` | 409 | Plan requested for a ZIP upload; those are static-analysis only. |
 | `SNAPSHOT_UNAVAILABLE` | 409 | This machine has no copy of the repository's code: an upload imported on another laptop. Returned by re-indexing, and by creating a plan or starting a run **before any Argon call** (#84). Built-in fixtures never hit it: their copy is rebuilt from the checkout (#83). |
+| `DOCS_GENERATION_ACTIVE` | 409 | `POST /repositories/{id}/docs` while a generation is already running for that repository (#39). Its progress is on `GET /repositories/{id}/docs`. |
 | `INTEGRATION_UNAVAILABLE` | 503 | A collaborator's function isn't implemented yet. Names the owner in `details`. |
 | `MODEL_UNAVAILABLE` | 503 | Argon was called and failed: a spent quota, a rate limit that outlasted the wait, a dropped connection. The message says which (#47). |
 | `PLAN_NOT_FOUND` / `RUN_NOT_FOUND` / `ARTEFACT_NOT_FOUND` / `UNIT_NOT_FOUND` | 404 | Unknown id. |
@@ -91,6 +92,27 @@ All ✅ — implemented and exercised against the real cluster.
 Import sets `executable=True` **only** for the allowlisted fixture `legacy_orders`.
 Folder and ZIP uploads get `executable=False` and can never run. A folder upload's
 `paths` are relative to the folder and pass the same checks as ZIP member names.
+
+### Module docs — Dev 1 (#39)
+
+| Endpoint | Response |
+|---|---|
+| `GET /repositories/{repo_id}/docs` | `{repository_id, python, prose, modules: [{module_id, path, is_test, legacy: {facts, purpose, markdown}}], warnings}`. No model call. |
+| `GET /runs/{run_id}/docs` | The same, with `run_id`, `revision`, `python: {legacy, migrated}`, and per module `migrated: {facts, change, markdown}` or `null`. `change` is `{run_id, unit: {unit_id, status, attempts}, summary, dependencies}`. No model call. |
+| `POST /repositories/{repo_id}/docs` | **202** `{repository_id, prose}`, then generates the missing purposes in the background |
+
+- `facts` come from the parse tree (`basis: static_ast`): docstring as written,
+  public classes and methods, public functions with signatures, `depends_on`,
+  `packages`, `used_by`.
+- `purpose` is one model-written sentence per non-test module, from the legacy source,
+  `basis: model_generated`, or `null` until generated. `prose.state` is
+  `not_generated | generating | ready | partial | failed`, with `done` and `total`.
+- `change.summary` is Argon's own summary of the accepted patch, from the run journal.
+- Errors: 404 for an unknown repository or run; 409 `SNAPSHOT_UNAVAILABLE` when a tree
+  isn't on this machine; 409 `DOCS_GENERATION_ACTIVE`; 503 `MODEL_UNAVAILABLE` with no
+  key.
+- The export zip (`GET /runs/{id}/export`) carries the same pages under
+  `axolotl/docs/`, with cached purposes only: an export never calls a model.
 
 ### Search
 
@@ -203,8 +225,27 @@ Sets a flag the worker checks between steps. 409 `RUN_ALREADY_FINISHED` on a ter
 `narrative` is the only model-written prose and is labelled as such.
 `coverage_caveats` always states that agreement on N cases is not a proof of equivalence.
 
+### ✅ `GET /runs/{run_id}/summary` → migration summary (#35)
+One overview of what the run changed. 404 `REPORT_NOT_READY` until the report exists.
+- `units[]`: `{unit_id, paths, status, attempts, accepted_revision, tests: {passed,
+  failed, inconclusive, gates}, counterexamples: {found, resolved}, lines: {added,
+  removed} | null, argon_summary: {text, basis: "model_written", accepted} | null}`.
+- `totals`: units, verified, blocked, skipped, files changed, lines added and removed,
+  the report's test and counterexample counts, and `final_integration`.
+- `python: {before, after}`, `dependencies` (from #34), `caveats`, `limitations`,
+  `basis` per section, `warnings`, and `markdown` (also `axolotl/SUMMARY.md` in the export).
+- Tests run per unit are the last `gate_result` per gate, so a repair isn't counted
+  twice; with the final-integration gate they sum to the report's `tests_passed`.
+- `lines`, `python` and `dependencies` need the run's trees: on another machine they
+  are `null` with a warning, and everything from the report and journal still answers.
+
 ### ✅ `GET /runs/{run_id}/artefacts` → `[{artefact_id, kind, sha256, download_url}]`
 ### ✅ `GET /artefacts/{artefact_id}/download` → file stream
+### ✅ `GET /runs/{run_id}/export` → ZIP of the migrated project (#40)
+The final accepted tree with `axolotl/MIGRATION.md`, `report.json`, `SUMMARY.md` (#35)
+and `docs/` (#39). Not the patch (#133): that stays its own artefact.
+Built on request, not listed as an artefact. 404 `REPORT_NOT_READY` before the report,
+404 `ARTEFACT_NOT_FOUND` when no unit was accepted or the tree is gone.
 
 ---
 

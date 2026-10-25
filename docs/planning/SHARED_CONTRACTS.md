@@ -802,3 +802,79 @@ No model changes. Three behaviours:
 And one error on two more endpoints: `POST /repositories/{id}/plans` and
 `POST /plans/{id}/runs` answer `409 SNAPSHOT_UNAVAILABLE` before any model call when this
 machine has no copy of the code.
+
+### Additive: `POST /repositories/{id}/ask` (Dev 2, #123)
+
+A new endpoint. No change to any existing model, response or error, so nothing that
+exists today has to move.
+
+```
+POST /repositories/{repository_id}/ask
+  { "question": "where is the rounding done?",
+    "history": [{"role": "user"|"assistant", "content": "..."}] }   # optional
+
+200 { "answer": "...",
+      "grounded": true,
+      "citations": [{"path": "pricing.py", "start_line": 41, "end_line": 58,
+                     "symbol": "pricing.finalise_amount", "snippet": "..."}],
+      "retrieval": [{"tool": "search_repository", "query": "rounding",
+                     "mode_used": "hybrid", "native_hybrid": true, "hit_count": 8}],
+      "model": "gemini-4-argon",
+      "truncated": false }
+```
+
+Errors are the §6 envelope: `404 NOT_FOUND` for an unknown repository, raised before
+any model call; `503 MODEL_UNAVAILABLE` when Gemini cannot be reached; `422` for a
+malformed request. A question is never answered from general knowledge because the
+model was unreachable.
+
+Three things the shape commits to, which consumers can rely on:
+
+- **`grounded` is false when retrieval returned no hits**, and the answer says it could
+  not find anything. Searching and finding nothing is not the same as not searching, so
+  `retrieval` is still populated in that case with `hit_count: 0`.
+- **`citations` are read off the tool results**, not asked of the model. A model invited
+  to write its own citations can cite a file it never opened.
+- **`retrieval` is part of the contract, not a debug field.** It is how the UI shows
+  which engine answered and whether `$rankFusion` ran.
+
+`history` lives in the request payload only. Nothing is stored, so there is no new
+collection and no conversation state to keep in step.
+
+**Tool surface.** The endpoint reuses the migration agent's own tools with the
+controller removed, limited to the five that need nothing but a repository id:
+`get_repository_overview`, `get_dependency_graph`, `get_module_source`, `get_symbol`,
+`search_repository`. `propose_patch`, `run_verification` and `finish_unit` are excluded
+because a chat must not change anything; `get_counterexamples` because it is derived
+from held-out failures; `get_behaviour_cases` because it needs a unit, which a question
+does not have. `backend/tests/unit/test_ask_allowlist.py` pins that set, so widening it
+is a decision rather than a detail. **Dev 1**: `app/agents/` is your lane - the new
+module is `app/agents/ask.py` and it subclasses `ToolDispatcher` rather than changing
+it, but please say if you would rather own it.
+
+### Additive: module documentation (Dev 1, #39)
+
+Three endpoints and two collections, all new, so they merge immediately under §11.3:
+
+- `GET /repositories/{id}/docs`, `GET /runs/{id}/docs`, `POST /repositories/{id}/docs`
+  (202). Shapes in `docs/api-contracts.md`.
+- `module_docs`: one cached purpose per `(repository_id, path, source_hash)`.
+- `docs_generation`: one status document per repository.
+- One error code: `409 DOCS_GENERATION_ACTIVE`.
+
+Facts are computed from the trees on request and never stored, like #34.
+
+**For Dev 5 (#130):** each module has `legacy` and, on a run, `migrated`, each with
+structured `facts` and a ready-made `markdown`. Model-written text is labelled in both
+(`purpose.basis: model_generated`, and Argon's `change.summary`).
+
+### Additive: migration summary (Dev 1, #35)
+
+One new endpoint, `GET /runs/{run_id}/summary`, so it merges immediately under §11.3.
+Nothing is stored and no model is called: it is computed from the `RunReport` and the
+run's journal, plus the diff and #34's tree comparison when the trees are on this
+machine. Shape in `docs/api-contracts.md`.
+
+**For Dev 5 (#129):** per unit, `argon_summary` carries `basis: "model_written"` and
+`accepted`; show it labelled. `caveats` and `limitations` are the report's own, to be
+shown uncollapsed. `lines` is `null`, not 0, when the trees are elsewhere.

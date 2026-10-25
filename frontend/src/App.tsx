@@ -11,14 +11,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { cn } from 'cn';
-import { lazy, Suspense, useState } from 'react';
-import { Link, NavLink, Outlet, Route, Routes, useMatch, useParams, useSearchParams } from 'react-router-dom';
+import { Component, lazy, Suspense, useState, type MouseEvent, type ReactNode } from 'react';
+import { Link, NavLink, Outlet, Route, Routes, useLocation, useMatch, useParams, useSearchParams } from 'react-router-dom';
 
 import { getSystemStatus } from '@/api/client';
 import { AppBar } from '@/components/AppBar';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLive, useRun } from '@/lib/run';
+import { scopedSearch } from '@/lib/utils';
 import NewMigration from '@/screens/NewMigration';
 import Overview from '@/screens/Overview';
 import PlanScreen from '@/screens/PlanScreen';
@@ -32,6 +34,51 @@ const GraphScreen = lazy(() => import('@/screens/GraphScreen'));
 const RunScreen = lazy(() => import('@/screens/RunScreen'));
 const VerificationScreen = lazy(() => import('@/screens/VerificationScreen'));
 const SearchScreen = lazy(() => import('@/screens/SearchScreen'));
+const ChangesScreen = lazy(() => import('@/screens/ChangesScreen'));
+const DependenciesScreen = lazy(() => import('@/screens/DependenciesScreen'));
+const DocsScreen = lazy(() => import('@/screens/DocsScreen'));
+
+/** A screen that threw, or whose code didn't load (an old tab after a deploy), shows this, not a blank page. */
+class ErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { error: Error | null; resetKey: string }> {
+  state = { error: null as Error | null, resetKey: this.props.resetKey };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  static getDerivedStateFromProps(props: { resetKey: string }, state: { resetKey: string }) {
+    return props.resetKey === state.resetKey ? null : { error: null, resetKey: props.resetKey };
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+        <div role="alert" className="flex flex-col items-center gap-2">
+          <h1 className="text-xl font-semibold">This screen stopped working</h1>
+          <p className="max-w-[52ch] break-words text-muted-foreground">{this.state.error.message}</p>
+        </div>
+        <Button className="mt-2" onClick={() => window.location.reload()}>Reload</Button>
+      </main>
+    );
+  }
+}
+
+/** The screen area: a lazy screen shows "Loading…" while its code loads; a new address clears an error. */
+function Screen({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname}>
+      <Suspense fallback={<p role="status" className="p-6 text-muted-foreground">Loading…</p>}>{children}</Suspense>
+    </ErrorBoundary>
+  );
+}
+
+/** Every screen has one <main>; the skip link focuses it, past the app bar and the tabs. */
+function skipToMain(event: MouseEvent<HTMLAnchorElement>) {
+  const main = document.querySelector('main');
+  if (!main) return;
+  event.preventDefault();
+  main.tabIndex = -1;
+  main.focus();
+}
 
 function Shell() {
   const repoId = useMatch('/repos/:repoId/*')?.params.repoId;
@@ -44,6 +91,13 @@ function Shell() {
   const status = useQuery({ queryKey: ['system-status'], queryFn: getSystemStatus, refetchInterval: STATUS_POLL_MS });
   return (
     <div className="flex min-h-svh flex-col">
+      <a
+        href="#main"
+        onClick={skipToMain}
+        className="sr-only z-50 rounded-md bg-card px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:ring-2 focus:ring-ring"
+      >
+        Skip to content
+      </a>
       <AppBar repoId={repoId} status={status.data} />
       {status.isError && !runBanner && (
         <ConnectionBanner
@@ -53,7 +107,7 @@ function Shell() {
           onRetry={() => void status.refetch()}
         />
       )}
-      <Outlet />
+      <Screen><Outlet /></Screen>
     </div>
   );
 }
@@ -64,6 +118,9 @@ const TABS = [
   { label: 'Plan', path: '/plan' },
   { label: 'Run', path: '/run', needsRun: true },
   { label: 'Report', path: '/report', needsRun: true },
+  { label: 'Changes', path: '/changes', needsRun: true },
+  { label: 'Dependencies', path: '/dependencies', needsRun: true },
+  { label: 'Docs', path: '/docs' },
   { label: 'Search', path: '/search' },
 ];
 const TAB = 'flex items-center px-3 text-sm font-medium border-b-2 border-transparent -mb-px transition-colors';
@@ -71,7 +128,7 @@ const TAB = 'flex items-center px-3 text-sm font-medium border-b-2 border-transp
 function RepoLayout() {
   const { repoId = '' } = useParams();
   const [params] = useSearchParams();
-  const search = params.size ? `?${params}` : '';
+  const search = scopedSearch(params);
   // A screen can put controls at the right of the tab bar (the graph's filter) through this slot.
   const [navSlot, setNavSlot] = useState<HTMLDivElement | null>(null);
   return (
@@ -103,7 +160,7 @@ function RepoLayout() {
         </div>
         <div ref={setNavSlot} className="ml-auto flex items-center" />
       </nav>
-      <Outlet context={navSlot} />
+      <Screen><Outlet context={navSlot} /></Screen>
     </>
   );
 }
@@ -126,14 +183,17 @@ export default function App() {
         <Route index element={<NewMigration />} />
         <Route path="repos/:repoId" element={<RepoLayout />}>
           <Route index element={<Overview />} />
-          <Route path="graph" element={<Suspense><GraphScreen /></Suspense>} />
+          <Route path="graph" element={<GraphScreen />} />
           <Route path="plan" element={<PlanScreen />} />
-          <Route path="run" element={<Suspense><RunScreen /></Suspense>} />
-          <Route path="run/:unitId" element={<Suspense><VerificationScreen /></Suspense>} />
+          <Route path="run" element={<RunScreen />} />
+          <Route path="run/:unitId" element={<VerificationScreen />} />
           <Route path="report" element={<ReportScreen />} />
-          <Route path="search" element={<Suspense><SearchScreen /></Suspense>} />
+          <Route path="changes" element={<ChangesScreen />} />
+          <Route path="dependencies" element={<DependenciesScreen />} />
+          <Route path="docs" element={<DocsScreen />} />
+          <Route path="search" element={<SearchScreen />} />
         </Route>
-        {UiPreview && <Route path="dev/ui" element={<Suspense><UiPreview /></Suspense>} />}
+        {UiPreview && <Route path="dev/ui" element={<UiPreview />} />}
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

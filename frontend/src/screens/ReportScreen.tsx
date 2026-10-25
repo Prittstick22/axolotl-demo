@@ -1,29 +1,31 @@
 import { CaretRightIcon, DownloadSimpleIcon, InfoIcon, ListChecksIcon, XCircleIcon, type Icon } from '@phosphor-icons/react';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 
-import { API_BASE, ApiError, getPlan, getReport, listArtefacts } from '@/api/client';
+import { API_BASE, ApiError, exportUrl, getDependencyChanges, getPlan, getReport, getRunDiff, getRunSecurity, listAllRunEvents } from '@/api/client';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { narrativeBlocks } from '@/lib/narrative';
 import { CLOSING_WAIT_MS, isLive, POLL_MS, useRun } from '@/lib/run';
 import { RUN_STATE, TONE_BORDER, TONE_TEXT, TONE_TINT } from '@/lib/status';
+import { changes as diffChanges } from '@/lib/diff';
+import { scopedSearch } from '@/lib/utils';
 import { Field } from '@/screens/Overview';
-import type { Artefact, MigrationPlan, RunReport, RunSummary } from '@/types/contracts';
+import type { MigrationPlan, RunEvent, RunReport, RunSummary, RunSecurity, SecurityPackages, SecurityTree } from '@/types/contracts';
 
 // worker.py's final_verdict: `completed` only when every unit and the final gates passed.
 const VERDICT_TEXT: Record<RunReport['verdict'], string> = {
   completed:
     'Every unit and the final check agree with the original code on the tested cases. That is agreement on those cases, not proof the code behaves the same everywhere.',
-  completed_with_warnings: 'Not everything could be verified. Read these caveats before you apply the patch.',
-  failed: 'The migrated code isn’t verified. Don’t apply the patch as it stands.',
+  completed_with_warnings: 'Not everything could be verified. Read these caveats before you use the migrated code.',
+  failed: 'The migrated code isn’t verified. Don’t use it as it stands.',
   cancelled: 'The run was stopped before it finished. Units verified before that stay verified; the rest weren’t migrated.',
 };
-const KIND: Record<Artefact['kind'], string> = { patch: 'Patch', archive: 'Archive', report: 'Report' };
 const time = (ms: number) => new Date(ms).toLocaleTimeString('en-GB');
+const TEST_COUNTS = ['passed', 'failed', 'inconclusive'] as const;
 
 function Empty({ icon: Icon, title, failed, children }: { icon: Icon; title: string; failed?: boolean; children: ReactNode }) {
   return (
@@ -84,42 +86,134 @@ function Narrative({ text }: { text: string | null }) {
   );
 }
 
-function Downloads({ query }: { query: UseQueryResult<Artefact[]> }) {
-  const artefacts = query.data;
-  const missing = (Object.keys(KIND) as Artefact['kind'][]).filter((k) => !artefacts?.some((a) => a.kind === k));
+function Downloads({ report }: { report: RunReport }) {
+  // With nothing accepted the project is still the legacy code and the API answers 404,
+  // so the panel says that instead of offering a button that fails when clicked.
+  const accepted = report.units.some((u) => u.accepted_revision);
   return (
     <Panel title="Downloads">
-      {query.isError ? (
-        <p className="text-sm text-muted-foreground">Couldn’t load the file list: {query.error.message}</p>
-      ) : !artefacts ? (
-        <p className="text-sm text-muted-foreground">Loading the files…</p>
-      ) : !artefacts.length ? (
-        <p className="text-sm text-muted-foreground">No files were returned for this run.</p>
-      ) : (
+      {accepted ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            {artefacts.map((a) => (
-              <a
-                key={a.artefact_id}
-                href={new URL(a.download_url, new URL(API_BASE, location.href)).href}
-                title={`SHA-256 ${a.sha256}`}
-                className={buttonVariants({ variant: 'outline' })}
-              >
-                <DownloadSimpleIcon aria-hidden />
-                {KIND[a.kind]}
-              </a>
-            ))}
-          </div>
-          {missing.length > 0 && (
-            <p className="text-sm text-muted-foreground">No {missing.map((k) => KIND[k].toLowerCase()).join(' or ')} was returned for this run.</p>
-          )}
+          <a href={exportUrl(report.run_id)} className={cn(buttonVariants(), 'self-start')}>
+            <DownloadSimpleIcon aria-hidden />
+            Download migrated codebase (.zip)
+          </a>
+          <p className="text-sm text-muted-foreground">
+            A ZIP of the whole project at the final revision. Its <code className="font-mono">axolotl/MIGRATION.md</code> inside says which files were migrated
+            and verified. It is built on the machine that ran the migration, so the download fails elsewhere.
+          </p>
         </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No unit was accepted in this run, so the project is still the legacy code and there is nothing to download.
+        </p>
       )}
     </Panel>
   );
 }
 
-function Report({ report, plan, artefacts, run }: { report: RunReport; plan?: MigrationPlan; artefacts: UseQueryResult<Artefact[]>; run?: RunSummary }) {
+function advisoryUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname === 'osv.dev' ? parsed.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** security.py writes lower-case clauses; shown as sentences. */
+const sentence = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? '' : '.'}`;
+
+function PackageChecks({ title, packages }: { title: string; packages: SecurityPackages }) {
+  const unchecked = packages.status === 'not_run' || packages.status === 'nothing_pinned';
+  return (
+    <section className="flex flex-col gap-2 border-t pt-3">
+      <h4 className="font-medium">{title}</h4>
+      <p role={packages.status === 'not_run' ? 'alert' : undefined} className={cn('text-sm', unchecked ? 'text-warning' : 'text-muted-foreground')}>
+        {sentence(packages.message)}
+        {packages.status === 'checked' && ' A clean result only covers these pinned versions.'}
+      </p>
+      {packages.unpinned.map((item) => (
+        <p key={`${item.name}-${item.source}`} className="text-sm text-warning">
+          <code className="font-mono">{item.name}</code>: {item.note}
+        </p>
+      ))}
+      {packages.checked.flatMap((item) => item.vulnerabilities.map((vulnerability) => (
+        <div key={`${item.name}-${item.version}-${vulnerability.id}`} className="rounded-sm border px-3 py-2 text-sm">
+          <p className="font-mono">{item.name} {item.version} · {vulnerability.id}</p>
+          {vulnerability.summary && <p className="mt-1">{vulnerability.summary}</p>}
+          <p className="text-muted-foreground">
+            Fixed version: {vulnerability.fixed_versions.length ? vulnerability.fixed_versions.join(', ') : 'Not stated'}
+          </p>
+          {advisoryUrl(vulnerability.url) && <a className="underline underline-offset-4" href={advisoryUrl(vulnerability.url)} target="_blank" rel="noreferrer">View advisory</a>}
+        </div>
+      )))}
+      {packages.warnings.map((warning) => <p key={warning} className="text-sm text-muted-foreground">{warning}</p>)}
+    </section>
+  );
+}
+
+function SecuritySection({ runId }: { runId: string }) {
+  const security = useQuery({ queryKey: ['run-security', runId], queryFn: () => getRunSecurity(runId) });
+  if (security.isPending) return <Panel title="Security"><p className="text-sm text-muted-foreground">Loading the security checks…</p></Panel>;
+  if (security.isError) {
+    return (
+      <Panel title="Security">
+        <p role="alert" className="text-sm text-failed">The security report could not be loaded: {security.error.message}</p>
+        <p className="text-sm text-muted-foreground">No result is inferred from a failed request.</p>
+      </Panel>
+    );
+  }
+  const result: RunSecurity = security.data;
+  const changeGroups = result.changes
+    ? [
+        ['Resolved package advisories', result.changes.fixed],
+        ['Introduced package advisories', result.changes.introduced],
+        ['Unchanged package advisories', result.changes.still_present],
+      ] as const
+    : [];
+  const runtime = (side: SecurityTree, label: string) => (
+    <p key={label} className="text-sm">
+      {label}: Python {side.runtime.declared_python ?? 'version not declared'}
+      {side.runtime.note && <span className="block text-warning">{side.runtime.note}</span>}
+    </p>
+  );
+  return (
+    <Panel title="Security">
+      <p className="text-sm text-muted-foreground">{result.disclaimer}</p>
+      <PackageChecks title="Legacy packages" packages={result.legacy.packages} />
+      {result.migrated && <PackageChecks title="Migrated packages" packages={result.migrated.packages} />}
+      {result.migrated && result.changes && (
+        <section className="flex flex-col gap-2 border-t pt-3">
+          <h4 className="font-medium">Known package advisory changes</h4>
+          {changeGroups.map(([label, items]) => (
+            <div key={label}>
+              <h5 className="text-sm font-medium">{label}</h5>
+              {items.length ? items.map((item) => (
+                <p key={`${item.package}-${item.id}`} className="text-sm">
+                  <code className="font-mono">{item.package} {item.version}</code> · {item.id}
+                  {advisoryUrl(item.url) && <> · <a className="underline underline-offset-4" href={advisoryUrl(item.url)} target="_blank" rel="noreferrer">Advisory</a></>}
+                </p>
+              )) : <p className="text-sm text-muted-foreground">None reported.</p>}
+            </div>
+          ))}
+        </section>
+      )}
+      <section className="flex flex-col gap-2 border-t pt-3">
+        <h4 className="font-medium">Runtime</h4>
+        {runtime(result.legacy, 'Legacy')}
+        {result.migrated && runtime(result.migrated, 'Migrated')}
+      </section>
+      <section className="flex flex-col gap-1 border-t pt-3">
+        <h4 className="font-medium">Code scan</h4>
+        <p className="text-sm text-muted-foreground">No code scan ran. Only the declared packages and the Python runtime are checked.</p>
+      </section>
+      {result.warnings.map((warning) => <p key={warning} className="text-sm text-warning">{warning}</p>)}
+    </Panel>
+  );
+}
+
+function Report({ report, plan, run, repoId, search }: { report: RunReport; plan?: MigrationPlan; run?: RunSummary; repoId: string; search: string }) {
   const { icon: VerdictIcon, label, tone } = RUN_STATE[report.verdict];
   const paths = new Map(plan?.units.map((u) => [u.unit_id, u.file_paths.join(', ')]));
   const rank = (id: string) => plan?.order.indexOf(id) ?? 0;
@@ -128,10 +222,37 @@ function Report({ report, plan, artefacts, run }: { report: RunReport; plan?: Mi
   const final = plan && units.findLast((u) => u.accepted_revision)?.accepted_revision;
   const verified = units.filter((u) => u.status === 'passed').length;
   const tests = report.tests_passed + report.tests_failed + report.tests_inconclusive;
+  const log = useQuery({ queryKey: ['run-events-all', report.run_id], queryFn: () => listAllRunEvents(report.run_id) });
+  const diff = useQuery({ queryKey: ['run-diff', report.run_id], queryFn: () => getRunDiff(report.run_id) });
+  const deps = useQuery({ queryKey: ['dependency-changes', report.run_id], queryFn: () => getDependencyChanges(report.run_id) });
+  const files = new Map(plan?.units.map((u) => [u.unit_id, u.file_paths]));
+  // The last gate_result per (unit, gate), as reports/builder.py counts them: every repair attempt re-runs the unit's gates.
+  const lastGates = new Map<string, RunEvent>();
+  const summaries = new Map<string, string>();
+  for (const e of log.data ?? []) {
+    if (!e.unit_id) continue;
+    if (e.event_type === 'gate_result') lastGates.set(`${e.unit_id} ${String(e.payload.gate)}`, e);
+    if (e.event_type === 'patch_proposed' && typeof e.payload.summary === 'string') summaries.set(e.unit_id, e.payload.summary);
+  }
+  const unitTests = (unitId: string) => {
+    const [passed, failed, inconclusive] = TEST_COUNTS.map((k) =>
+      [...lastGates.values()].filter((e) => e.unit_id === unitId).reduce((n, e) => n + (Number(e.payload[k]) || 0), 0),
+    );
+    if (!passed && !failed && !inconclusive) return 'None recorded';
+    return `${passed} passed${failed ? `, ${failed} failed` : ''}${inconclusive ? `, ${inconclusive} inconclusive` : ''}`;
+  };
+  const unitDiff = (unitId: string) => diff.data?.files.filter((f) => files.get(unitId)?.includes(f.path)) ?? [];
+  const lines = (unitId: string) => {
+    const n = unitDiff(unitId).map((f) => diffChanges(f.unified_diff)).reduce((t, c) => ({ added: t.added + c.added, removed: t.removed + c.removed }), { added: 0, removed: 0 });
+    return `+${n.added} / −${n.removed}`;
+  };
+  const withParam = (key: string, value: string) => scopedSearch(new URLSearchParams(search), { [key]: value });
+  const repoPath = `/repos/${encodeURIComponent(repoId)}`;
+  const python = deps.data?.python;
 
   return (
     <div className="flex flex-1 items-start gap-6 p-6">
-      <div className="flex max-w-[880px] min-w-0 flex-1 flex-col gap-4">
+      <div className="flex max-w-[880px] min-w-0 flex-1 flex-col gap-4 min-[1600px]:max-w-none">
         <section className={cn('flex gap-3 rounded-lg border px-5 py-4', TONE_TINT[tone], TONE_BORDER[tone])}>
           <VerdictIcon size={24} aria-hidden className={cn('mt-1 flex-none', TONE_TEXT[tone])} />
           <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -152,6 +273,15 @@ function Report({ report, plan, artefacts, run }: { report: RunReport; plan?: Mi
                 {tests ? `${report.tests_passed} passed, ${report.tests_failed} failed${report.tests_inconclusive ? `, ${report.tests_inconclusive} inconclusive` : ''}` : 'None run'}
               </Field>
               <Field label="Counterexamples">{`${report.counterexamples_found} found, ${report.counterexamples_resolved} resolved`}</Field>
+              <Field label="Files changed">{report.changed_files.length}</Field>
+              {python && (
+                <Field label="Python">
+                  {`${python.before.declared ?? 'not declared'} → ${python.after.declared ?? 'not declared'}`}
+                  <Link to={{ pathname: `${repoPath}/dependencies`, search }} className="text-sm font-normal underline underline-offset-4">
+                    Dependency changes
+                  </Link>
+                </Field>
+              )}
               {final && (
                 <Field label="Final revision">
                   <span className="font-mono">{final}</span>
@@ -164,38 +294,71 @@ function Report({ report, plan, artefacts, run }: { report: RunReport; plan?: Mi
         <section className="rounded-lg border bg-card">
           <div className="flex items-baseline gap-4 border-b px-4 py-3">
             <h2 className="text-xl leading-tight font-semibold">Units</h2>
-            <span className="ml-auto text-sm text-muted-foreground">
-              {report.changed_files.length} changed {report.changed_files.length === 1 ? 'file' : 'files'}
-            </span>
+            <span className="ml-auto text-sm text-muted-foreground">Tests count each check’s last attempt, as the totals above do.</span>
           </div>
+          {log.isError && <p role="alert" className="px-4 pt-2 text-sm text-failed">Tests and Argon’s summaries couldn’t be loaded: {log.error.message}</p>}
+          {diff.isError && <p role="alert" className="px-4 pt-2 text-sm text-failed">Line counts couldn’t be loaded: {diff.error.message}</p>}
+          {deps.isError && <p role="alert" className="px-4 pt-2 text-sm text-failed">The Python version and dependency changes couldn’t be loaded: {deps.error.message}</p>}
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse [&_td]:border-t [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2 [&_th]:text-sm [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-muted-foreground">
+            <table className="w-full border-collapse [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2 [&_th]:text-sm [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-muted-foreground">
               <thead>
                 <tr className="text-left">
                   <th>Unit</th>
                   <th>Status</th>
+                  <th>Lines</th>
                   <th className="text-right">Attempts</th>
+                  <th>Tests</th>
                   <th>Accepted revision</th>
+                  <th><span className="sr-only">Links</span></th>
                 </tr>
               </thead>
-              <tbody>
-                {units.map((u) => (
-                  <tr key={u.unit_id}>
-                    <td className="font-mono text-sm">{paths.get(u.unit_id) ?? u.unit_id}</td>
-                    <td>
-                      <StatusBadge status={u.status} />
-                    </td>
-                    <td className="text-right">{u.attempts}</td>
-                    <td className={cn('font-mono text-sm', !u.accepted_revision && 'text-muted-foreground')}>{u.accepted_revision ?? 'None'}</td>
-                  </tr>
-                ))}
-              </tbody>
+              {units.map((u) => {
+                const summary = u.status === 'passed' ? summaries.get(u.unit_id) : undefined;
+                const first = files.get(u.unit_id)?.[0];
+                return (
+                  // One tbody per unit, so its summary row reads as part of it.
+                  <tbody key={u.unit_id} className="border-t text-sm">
+                    <tr>
+                      <td className="font-mono">{paths.get(u.unit_id) ?? u.unit_id}</td>
+                      <td>
+                        <StatusBadge status={u.status} />
+                      </td>
+                      <td className="whitespace-nowrap">{diff.data ? lines(u.unit_id) : diff.isError ? 'Unknown' : '…'}</td>
+                      <td className="text-right">{u.attempts}</td>
+                      <td>{log.data ? unitTests(u.unit_id) : log.isError ? 'Unknown' : '…'}</td>
+                      <td className={cn('font-mono', !u.accepted_revision && 'text-muted-foreground')}>{u.accepted_revision ?? 'None'}</td>
+                      <td className="whitespace-nowrap">
+                        {unitDiff(u.unit_id).length > 0 && (
+                          <Link to={{ pathname: `${repoPath}/changes`, search: withParam('unit', u.unit_id) }} className="underline underline-offset-4">
+                            Diff
+                          </Link>
+                        )}
+                        {first && (
+                          <Link to={{ pathname: `${repoPath}/docs`, search: withParam('path', first) }} className="ml-3 underline underline-offset-4">
+                            Docs
+                          </Link>
+                        )}
+                        <Link to={{ pathname: `${repoPath}/run/${encodeURIComponent(u.unit_id)}`, search }} className="ml-3 underline underline-offset-4">
+                          Verification
+                        </Link>
+                      </td>
+                    </tr>
+                    {summary && (
+                      <tr>
+                        <td colSpan={7} className="pt-0 text-muted-foreground">
+                          <span className="font-medium">Argon’s summary, model-written:</span> {summary}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                );
+              })}
             </table>
           </div>
         </section>
       </div>
 
-      <div className="flex w-[360px] flex-none flex-col gap-4 min-[1300px]:w-[400px]">
+      <div className="flex w-[360px] flex-none flex-col gap-4 min-[1300px]:w-[400px] min-[1600px]:w-[480px]">
         {report.performance && report.performance.units.length > 0 && (
           <Panel title="Sandbox runtime" note={report.performance.method}>
             <div className="overflow-x-auto">
@@ -227,7 +390,8 @@ function Report({ report, plan, artefacts, run }: { report: RunReport; plan?: Mi
             </ul>
           </Panel>
         )}
-        <Downloads query={artefacts} />
+        <Downloads report={report} />
+        <SecuritySection runId={report.run_id} />
         <Narrative text={report.narrative} />
       </div>
     </div>
@@ -240,13 +404,14 @@ export default function ReportScreen() {
   const [params] = useSearchParams();
   const navSlot = useOutletContext<HTMLElement | null>();
   const runId = params.get('run');
-  const search = params.size ? `?${params}` : '';
+  const search = scopedSearch(params);
   const run = useRun(runId);
   // The worker writes the report about 20 s after the run ends. Until then the API answers 404.
   // Timed by the fetch, not the render, so the last 404 both stops the polling and says so.
+  // A run with an error (no baseline, a backend restart) went through worker.py's _fail path, which writes no report.
   const ended = run.data && !isLive(run.data) ? Date.parse(run.data.updated_at) : undefined;
   const waiting = (e: Error | null, at: number) =>
-    e instanceof ApiError && e.code === 'REPORT_NOT_READY' && (ended === undefined || at - ended < CLOSING_WAIT_MS);
+    e instanceof ApiError && e.code === 'REPORT_NOT_READY' && !run.data?.error && (ended === undefined || at - ended < CLOSING_WAIT_MS);
   const report = useQuery({
     queryKey: ['report', runId],
     queryFn: () => getReport(runId!),
@@ -254,7 +419,6 @@ export default function ReportScreen() {
     refetchInterval: (q) => (waiting(q.state.error, q.state.errorUpdatedAt) ? POLL_MS : false),
   });
   const plan = useQuery({ queryKey: ['plan', run.data?.plan_id], queryFn: () => getPlan(run.data!.plan_id), enabled: Boolean(run.data) });
-  const artefacts = useQuery({ queryKey: ['artefacts', runId], queryFn: () => listArtefacts(runId!), enabled: report.isSuccess });
   const toRun = { pathname: `/repos/${encodeURIComponent(repoId)}/run`, search };
 
   if (!runId) {
@@ -280,7 +444,7 @@ export default function ReportScreen() {
           navSlot,
         )}
       {report.data ? (
-        <Report report={report.data} plan={plan.data} artefacts={artefacts} run={run.data} />
+        <Report report={report.data} plan={plan.data} run={run.data} repoId={repoId} search={search} />
       ) : err instanceof ApiError && err.code === 'REPORT_NOT_READY' ? (
         waiting(err, report.errorUpdatedAt) ? (
           <Empty icon={ListChecksIcon} title="Report not ready yet">
@@ -296,7 +460,9 @@ export default function ReportScreen() {
           </Empty>
         ) : (
           <Empty icon={ListChecksIcon} title="No report for this run">
-            <p className="max-w-[48ch] text-muted-foreground">The run ended without writing one. Its last events on the Run screen say why.</p>
+            <p className="max-w-[48ch] break-words text-muted-foreground">
+              {run.data?.error ? `The run failed before writing one: ${run.data.error}` : 'The run ended without writing one. Its last events on the Run screen say why.'}
+            </p>
             <Link to={toRun} className={cn(buttonVariants(), 'mt-2')}>
               Go to run
             </Link>

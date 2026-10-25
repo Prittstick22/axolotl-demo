@@ -6,11 +6,14 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import { getPlan, getRunDiff, getRunUnit } from '@/api/client';
 import { StatusBadge } from '@/components/StatusBadge';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { changes } from '@/lib/diff';
 import { gateChip } from '@/lib/events';
 import { isLive, POLL_MS, useRun } from '@/lib/run';
 import { GATE_STATUS, TONE_TEXT, type Tone } from '@/lib/status';
 import { call, outcome } from '@/lib/values';
+import { scopedSearch } from '@/lib/utils';
+import { DiffViewToggle } from '@/screens/ChangesScreen';
 import { Sec } from '@/screens/ModuleInspector';
 import { Field } from '@/screens/Overview';
 import type { CaseOutcome, Counterexample, RunDiff, RunSummary, UnitDetail, UnitRunState, VerificationResult } from '@/types/contracts';
@@ -26,17 +29,10 @@ const CASE_STATUS: Record<Counterexample['status'], { icon: typeof CheckCircleIc
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const muted = 'text-sm text-muted-foreground';
 
-/** Counted from the unified diff, minus its two header lines. */
-function changes(unified: string) {
-  const lines = unified.split('\n');
-  return {
-    added: lines.filter((l) => l.startsWith('+') && !l.startsWith('+++ b/')).length,
-    removed: lines.filter((l) => l.startsWith('-') && !l.startsWith('--- a/')).length,
-  };
-}
 
 function DiffPane({ unit, diff }: { unit: UnitRunState; diff: UseQueryResult<RunDiff> }) {
   const [picked, setPicked] = useState(0);
+  const [sideBySide, setSideBySide] = useState(false);
   const files = diff.data?.files ?? [];
   const file = files[picked] ?? files[0];
 
@@ -78,12 +74,13 @@ function DiffPane({ unit, diff }: { unit: UnitRunState; diff: UseQueryResult<Run
         <span className="text-muted-foreground">
           {plural(added, 'line')} added, {removed} removed
         </span>
-        <span className="ml-auto text-muted-foreground">Inline diff, read-only</span>
+        <span className="ml-auto text-muted-foreground">Read-only</span>
+        <DiffViewToggle sideBySide={sideBySide} onChange={setSideBySide} />
       </div>
       <div className="relative min-h-0 flex-1">
         <div className="absolute inset-0">
           <Suspense fallback={<span className={cn('block p-3', muted)}>Loading the editor…</span>}>
-            <DiffView key={file.path} original={file.old_content} modified={file.new_content} path={file.path} />
+            <DiffView key={`${file.path} ${sideBySide}`} original={file.old_content} modified={file.new_content} path={file.path} sideBySide={sideBySide} />
           </Suspense>
         </div>
       </div>
@@ -251,6 +248,18 @@ function Unit({ run, unit, back }: { run: RunSummary; unit: UnitRunState; back: 
   // The verdict is the attempt that was accepted; until one is, the latest.
   const verdict = attempts.find((v) => v.workspace_revision === unit.accepted_revision) ?? attempts.at(-1);
   const total = Math.max(unit.attempts, attempts.at(-1)?.attempt ?? 0);
+  const order = plan.data?.units ?? [];
+  const at = order.findIndex((u) => u.unit_id === unit.unit_id);
+  const step = (offset: number, label: string) => {
+    const to = at >= 0 ? order[at + offset] : undefined;
+    return to ? (
+      <Link to={{ pathname: `${back.pathname}/${encodeURIComponent(to.unit_id)}`, search: back.search }} className={buttonVariants({ variant: 'outline' })}>
+        {label}
+      </Link>
+    ) : (
+      <Button variant="outline" disabled>{label}</Button>
+    );
+  };
 
   return (
     <>
@@ -271,6 +280,10 @@ function Unit({ run, unit, back }: { run: RunSummary; unit: UnitRunState; back: 
             'Nothing accepted'
           )}
         </Field>
+        <nav aria-label="Units" className="ml-auto flex gap-2">
+          {step(-1, 'Previous unit')}
+          {step(1, 'Next unit')}
+        </nav>
       </div>
       <div className="flex min-h-[480px] flex-1">
         <section aria-label="Diff" className="flex min-w-0 flex-1 flex-col bg-card">
@@ -299,7 +312,7 @@ export default function VerificationScreen() {
   const { repoId = '', unitId = '' } = useParams();
   const [params] = useSearchParams();
   const run = useRun(params.get('run'));
-  const back = { pathname: `/repos/${encodeURIComponent(repoId)}/run`, search: params.size ? `?${params}` : '' };
+  const back = { pathname: `/repos/${encodeURIComponent(repoId)}/run`, search: scopedSearch(params) };
   const unit = run.data?.units.find((u) => u.unit_id === unitId);
 
   return (
