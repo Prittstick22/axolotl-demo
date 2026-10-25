@@ -58,12 +58,15 @@ You need Docker Desktop (**started**), [uv](https://docs.astral.sh/uv/), Node 20
    ARGON_REPLAY_DELAY_SECONDS=0.5
    INDEX_ON_IMPORT=false
    GEMINI_DESCRIPTION_MODEL=gemini-3.8-flash
+   GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+   EMBEDDING_DIMENSIONS=768
    GEMINI_API_KEY=
    ```
    - `ARGON_REPLAY_DELAY_SECONDS` sets the pace. 0.5 gives about a 1.5–2 minute migration; use 1–2 for a slower video.
    - **`GEMINI_API_KEY` is optional.**
      - Empty, the demo makes **no Gemini calls at all**, and searches use keyword matching, labelled as such.
-     - With a key, searches use hybrid matching, at one small embedding call per search.
+     - With a key, searches use hybrid matching, at one small embedding call per search. Argon is still replayed.
+     - Keep the embedding model and dimensions above: the seeded search index was built with them. Without them, vector search stays off even with a key.
 5. **Load the team's chess data:**
    ```bash
    cd backend
