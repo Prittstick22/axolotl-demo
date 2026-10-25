@@ -182,3 +182,121 @@ async def test_a_replayed_report_says_whose_narrative_it_is(tmp_path, monkeypatc
 def test_live_mode_is_unchanged_without_a_replay_file():
     assert not replay.active()
     assert replay.model_label() == get_settings().gemini_model
+
+
+# --------------------------------------------------------------------------
+# Ask (#123): recorded questions replay; anything else is refused, never sent
+# --------------------------------------------------------------------------
+
+HIT = {
+    "chunk_id": "c1", "symbol_id": "s1", "module_id": "module_local_chess__game",
+    "path": "local_chess/game.py", "start_line": 57, "end_line": 66,
+    "snapshot_hash": "a" * 64, "snippet": "def status(self):", "description": None,
+    "match_method": "hybrid", "score": 1.0, "rank": 1, "keyword_rank": 1,
+    "vector_rank": 1, "qualified_name": "local_chess.game.Game.status", "kind": "method",
+}
+QUESTION = "Where is checkmate detected?"
+ANSWER = "Checkmate is decided in `Game.status()` at `local_chess/game.py:57-66`."
+
+
+@pytest.fixture
+def searches(monkeypatch):
+    """`search_repository` returns one hit, and records each query it was asked."""
+    asked = []
+
+    async def search(repo_id, query, mode="hybrid", limit=8):
+        asked.append(query)
+        return {"mode_used": "hybrid", "native_hybrid": True, "hits": [HIT]}
+
+    import app.search
+
+    monkeypatch.setattr(app.search, "search_repository", search)
+    return asked
+
+
+@pytest.fixture
+def ask_replay(tmp_path, monkeypatch):
+    script = replay.ask_script(QUESTION)
+    recording = {
+        "source_run_id": "run_recorded", "model": "gemini-4-argon",
+        "questions": {script: QUESTION},
+        "scripts": {script: [
+            {"id": "a1", "text": "", "calls": [
+                {"id": "c1", "name": "search_repository",
+                 "arguments": {"query": "checkmate", "mode": "hybrid"}}]},
+            {"id": "a2", "text": ANSWER, "calls": []},
+        ]},
+    }
+    path = tmp_path / "recording.json"
+    path.write_text(json.dumps(recording), encoding="utf-8")
+    settings = get_settings()
+    monkeypatch.setattr(settings, "argon_replay_file", str(path))
+    monkeypatch.setattr(settings, "argon_replay_delay_seconds", 0)
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    replay._load.cache_clear()
+    yield path
+    replay._load.cache_clear()
+
+
+def test_a_question_is_matched_however_it_is_typed():
+    assert replay.ask_script("Where is checkmate detected?") == replay.ask_script(
+        "  where IS checkmate   detected "
+    )
+    assert replay.ask_script("Where is checkmate detected?") != replay.ask_script(
+        "Where is stalemate detected?"
+    )
+
+
+async def test_a_recorded_question_replays_with_real_retrieval(ask_replay, searches):
+    from app.agents import ask
+
+    result = await ask.answer_question("repo_x", "where is CHECKMATE detected")
+
+    assert result.answer == ANSWER
+    assert searches == ["checkmate"]  # the recorded search ran for real
+    assert result.grounded is True
+    assert [c.path for c in result.citations] == ["local_chess/game.py"]
+    assert result.model == "gemini-4-argon (replay of run_recorded)"
+
+
+async def test_an_unrecorded_question_is_refused_with_the_recorded_ones(ask_replay, searches):
+    from app.agents import ask
+
+    with pytest.raises(ModelUnavailable) as caught:
+        await ask.answer_question("repo_x", "Which database saves games?")
+    assert "answers only the questions recorded for it" in str(caught.value)
+    assert QUESTION in str(caught.value)
+    assert searches == []  # nothing ran, and nothing was sent anywhere
+
+
+async def test_record_ask_keeps_the_live_turns(tmp_path, searches):
+    from app.agents.gemini_client import ToolCall, Turn
+
+    class Live:
+        model, thinking_level = "gemini-4-argon", "medium"
+
+        def __init__(self):
+            self.turns = [
+                Turn("l1", calls=[ToolCall("c1", "search_repository", {"query": "checkmate"})]),
+                Turn("l2", text=ANSWER),
+            ]
+            self.closed = False
+
+        async def turn(self, *args, **kwargs):
+            return self.turns.pop(0)
+
+        async def close(self):
+            self.closed = True
+
+    live = Live()
+    turns, answer = await replay.capture_ask("repo_x", QUESTION, live)
+    assert [t["id"] for t in turns] == ["l1", "l2"] and answer.answer == ANSWER
+    assert live.closed
+
+    path = tmp_path / "recording.json"
+    path.write_text(json.dumps({"source_run_id": "run_recorded", "scripts": {}}), encoding="utf-8")
+    replay.save_ask(path, QUESTION, turns)
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    script = replay.ask_script(QUESTION)
+    assert saved["questions"][script] == QUESTION
+    assert saved["scripts"][script][0]["calls"][0]["name"] == "search_repository"

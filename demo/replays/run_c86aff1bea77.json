@@ -973,6 +973,90 @@
     "text": "### Migration Run Report (`run_c86aff1bea77`)\n\n#### Summary of Recorded Results\n* **Run State:** `completed`\n* **Units Migrated:** 14 units total (`unit_local_chess`, `unit_local_chess____main__`, `unit_local_chess__board`, `unit_local_chess__cli`, `unit_local_chess__common`, `unit_local_chess__game`, `unit_local_chess__game_state`, `unit_local_chess__legacy_enum`, `unit_local_chess__move`, `unit_local_chess__notation`, `unit_local_chess__pieces`, `unit_local_chess__renderer`, `unit_local_chess__rules`, and `unit_setup`).\n* **Unit Outcomes:** All 14 units reached status `passed` in 1 attempt each.\n* **Final Verification (`ver_ed14778ef7f9`):**\n  * `final_integration`: Passed with agreement on 24 behaviour cases (24 agree, 0 differ, 0 inconclusive) and 8 existing tests passing in 0.42s.\n  * `sandbox_policy`: Passed with no timeouts, kills, or oversized output.\n\n#### Detailed Unit Evidence in Event Trace (Sequences 341–390)\n* **`unit_local_chess____main__` (`local_chess/__main__.py`):**\n  * Patch of 103 bytes applied at revision `rev_ca9b6169149a` and verified under `ver_73779b11f321`.\n  * Gates `compile`, `existing_tests` (8 passed in 0.41s), and `sandbox_policy` passed; `differential` and `impacted_tests` were skipped.\n* **`unit_setup` (`setup.py`):**\n  * Patch of 416 bytes applied at revision `rev_312b8850d60f` and verified under `ver_026fcbe4e737`.\n  * Gates `compile`, `existing_tests` (8 passed in 0.43s), and `sandbox_policy` passed; `differential` and `impacted_tests` were skipped.\n\n#### Untested Areas and Limitations\n* **Skipped Differential Gates:** Both `unit_local_chess____main__` and `unit_setup` had 0 behaviour cases (`test_case_count: 0` for `module_setup`), and no reverse dependants had behaviour cases. Consequently, `differential` and `impacted_tests` gates were skipped for both units.\n* **Packaging and Entry-Point Execution:** Changes to `setup.py` packaging metadata and the ` __main__` entry point were checked for compilation and against the 8 existing tests, but actual package installation and console script invocation were not exercised by differential behaviour cases.\n* **Partial Event Log:** The recorded event trace only includes sequences 341 to 390; detailed gate logs, timings, and patch contents for the other 12 units are not present in the supplied excerpt.\n* **Scope of Verification:** The evidence shows agreement on the 24 tested behaviour cases and 8 unit tests in `tests/test_chess.py` (lines 1–86), and does not cover inputs, game states, or code paths not exercised by those tests.",
     "calls": []
    }
+  ],
+  "ask:where is checkmate detected": [
+   {
+    "id": "v1_ChczRnpkYW9LWklwT0JrZFVQeGZ2RDhBWRIXM0Z6ZGFvS1pJcE9Ca2RVUHhmdkQ4QVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1317025",
+      "name": "search_repository",
+      "arguments": {
+       "query": "checkmate"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_ChczRnpkYW9LWklwT0JrZFVQeGZ2RDhBWRIXN0Z6ZGFyU3BDc3VkbnNFUDRkaWg0UVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1489392",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__game"
+      }
+     },
+     {
+      "id": "call_1489393",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__rules"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_ChczRnpkYW9LWklwT0JrZFVQeGZ2RDhBWRIXOGx6ZGF2dVVFTVNwa2RVUHZhcVNzUXc",
+    "text": "Checkmate is detected in `Game.status` at `local_chess/game.py:57-59`:\n\n```python\n    def status(self):\n        if not self.legal_moves():\n            return GameStatus.CHECKMATE if self.in_check() else GameStatus.STALEMATE\n```\n\nSpecifically:\n- **`Game.status` (`local_chess/game.py:57-59`)** checks if the current player has no legal moves (`not self.legal_moves()`, which calls `rules.legal_moves(self.state)` at `local_chess/game.py:31-32` and `local_chess/rules.py:13-14`) and is currently in check (`self.in_check()`, which calls `rules.is_in_check(self.state)` at `local_chess/game.py:48-49` and `local_chess/rules.py:16-17`). If both conditions hold, it returns `GameStatus.CHECKMATE` (defined at `local_chess/game.py:10`).\n- **`Game.winner` (`local_chess/game.py:68-69`)** checks `self.status() is GameStatus.CHECKMATE` to determine the winning color (`self.state.turn.opposite`).\n- **`ConsoleUI._announce_end_or_warnings` (`local_chess/cli.py:46-49`)** checks `status is GameStatus.CHECKMATE` to print the checkmate announcement in the CLI.",
+    "calls": []
+   }
+  ],
+  "ask:how is a move like e2e4 parsed": [
+   {
+    "id": "v1_ChdCRjNkYXFmeEs1dWQzYm9QN0xuaXFBdxIXQkYzZGFxZnhLNXVkM2JvUDdMbmlxQXc",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_923401",
+      "name": "search_repository",
+      "arguments": {
+       "query": "parse move e2e4"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_ChdCRjNkYXFmeEs1dWQzYm9QN0xuaXFBdxIXRmwzZGF1ZTdGNU9Ca2RVUHhmdkQ4QVk",
+    "text": "",
+    "calls": [
+     {
+      "id": "call_1435073",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__notation"
+      }
+     },
+     {
+      "id": "call_1435074",
+      "name": "get_module_source",
+      "arguments": {
+       "module_id": "module_local_chess__common"
+      }
+     }
+    ]
+   },
+   {
+    "id": "v1_ChdCRjNkYXFmeEs1dWQzYm9QN0xuaXFBdxIXSEYzZGFxRGpOc0sybnNFUHJhaTVtUWs",
+    "text": "A move string like `\"e2e4\"` is parsed by `parse_move(text, state)` in `local_chess/notation.py:7-27`, using `parse_square(text)` from `local_chess/common.py:47-51`:\n\n1. **Normalization and Castling Check (`local_chess/notation.py:8-14`)**:\n   - The input text is lowercased, stripped of leading/trailing whitespace, and has spaces removed (`text.lower().strip().replace(' ', '')`).\n   - It checks if the text (with `-` removed) is a castling notation (`'oo'`, `'00'`, `'ooo'`, `'000'`). `\"e2e4\"` is not, so execution continues.\n\n2. **Length Validation (`local_chess/notation.py:15-16`)**:\n   - It verifies `len(text)` is `4` or `5` (otherwise returning `None`). `\"e2e4\"` has length `4`.\n\n3. **Square Parsing (`local_chess/notation.py:17-19`, `local_chess/common.py:47-51`)**:\n   - `parse_move` slices the string into origin `text[:2]` (`\"e2\"`) and target `text[2:4]` (`\"e4\"`), passing each to `parse_square`.\n   - `parse_square` (`local_chess/common.py:47-51`) checks that the 2-character string has a valid file in `FILES` (`'abcdefgh'`, `local_chess/common.py:7`) and rank in `'12345678'`, then converts it to a `(row, col)` tuple via `(BOARD_SIZE - int(text[1]), FILES.index(text[0]))` where `BOARD_SIZE = 8` (`local_chess/common.py:6`):\n     - `\"e2\"` $\\rightarrow$ `(8 - 2, 'abcdefgh'.index('e'))` $\\rightarrow$ `(6, 4)`\n     - `\"e4\"` $\\rightarrow$ `(8 - 4, 'abcdefgh'.index('e'))` $\\rightarrow$ `(4, 4)`\n\n4. **Promotion Handling (`local_chess/notation.py:20-26`)**:\n   - `promotion` defaults to `''`.\n   - Since `len(\"e2e4\")` is `4` (not `5`) and the target row `4` is not on the back ranks `(0, 7)`, no promotion letter is set.\n\n5. **Result (`local_chess/notation.py:27`, `local_chess/move.py:12-16`)**:\n   - `parse_move` returns `MoveRequest(origin=(6, 4), target=(4, 4), promotion='')`.\n   - In the CLI (`ConsoleUI._play_text_move` in `local_chess/cli.py:59-61`), this `MoveRequest` is then passed to `self.game.find_move(request)` to match it against legal moves.",
+    "calls": []
+   }
   ]
+ },
+ "questions": {
+  "ask:where is checkmate detected": "Where is checkmate detected?",
+  "ask:how is a move like e2e4 parsed": "How is a move like e2e4 parsed?"
  }
 }

@@ -148,6 +148,7 @@ class GeminiClient:
         self.replay = replay.Cursor(script or "unscripted") if replay.active() else None
         if self.replay is not None:
             self.client = None
+            self.model = replay.model_label()  # answers say they are replayed
             return
         if client is None:
             from google import genai

@@ -26,6 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.agents import replay
 from app.agents.gemini_client import GeminiClient, function_result
 from app.agents.prompts import data_block
 from app.agents.tools import TOOL_MODELS, ToolDispatcher, schema
@@ -193,7 +194,7 @@ async def answer_question(
     """
     dispatcher = ReadOnlyDispatcher(repository_id)
     owned = client is None
-    client = client or GeminiClient()
+    client = client or GeminiClient(script=replay.ask_script(question))
     prompt: Any = (
         "Answer the question about this repository. Search or read the code first, and "
         "cite what you read. " + data_block({"question": question, "history": history or []})
