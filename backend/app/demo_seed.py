@@ -143,7 +143,12 @@ async def export(workspace_root: Path, out_dir: Path) -> None:
     print(f"workspace files: {files} -> {out_dir}")
 
 
-async def load(in_dir: Path) -> None:
+async def load(in_dir: Path, *, if_missing: bool = False) -> None:
+    """Replace this laptop's chess and recorded-run data with the seed's.
+
+    `if_missing` (what demo/start.ps1 uses) does nothing when both are already here:
+    the chess repository in the database and the run's files on disk.
+    """
     from app.persistence import db
     from app.sandbox.workspaces import workspace_root
 
@@ -156,6 +161,10 @@ async def load(in_dir: Path) -> None:
     await db.connect(settings)
     database = await db.get_db()
     try:
+        if if_missing and await _already_loaded(database, data):
+            print("the demo data is already loaded; nothing to do "
+                  "(run `load` without --if-missing to reload it)")
+            return
         for name, query in filters(data["repository_id"], data["run_id"],
                                    data["plan_id"]).items():
             await database[name].delete_many(query)
@@ -171,18 +180,30 @@ async def load(in_dir: Path) -> None:
     print(f"workspace files: {files}, into {workspace_root() / 'runs' / data['run_id']}")
 
 
+async def _already_loaded(database, data: dict[str, Any]) -> bool:
+    from app.sandbox.workspaces import workspace_root
+
+    repository = await database["repositories"].find_one(
+        {"repository_id": data["repository_id"]}, {"_id": 1})
+    run = await database["migration_runs"].find_one({"run_id": data["run_id"]}, {"_id": 1})
+    files = workspace_root() / "runs" / data["run_id"]
+    return bool(repository and run and files.is_dir() and any(files.iterdir()))
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.demo_seed")
     sub = parser.add_subparsers(dest="command", required=True)
     out = sub.add_parser("export", help="team cluster -> demo/seed (run on the product laptop)")
     out.add_argument("--workspace-root", required=True, type=Path,
                      help="the .axolotl_workspaces folder that holds the run's files")
-    sub.add_parser("load", help="demo/seed -> this laptop's local MongoDB")
+    loader = sub.add_parser("load", help="demo/seed -> this laptop's local MongoDB")
+    loader.add_argument("--if-missing", action="store_true",
+                        help="do nothing if the data and the run's files are already here")
     args = parser.parse_args(argv)
     if args.command == "export":
         asyncio.run(export(args.workspace_root, seed_dir()))
     else:
-        asyncio.run(load(seed_dir()))
+        asyncio.run(load(seed_dir(), if_missing=args.if_missing))
     return 0
 
 

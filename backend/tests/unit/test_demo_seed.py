@@ -67,3 +67,30 @@ def test_restore_never_writes_outside_the_run_folder(tmp_path):
     with pytest.raises(ValueError, match="outside"):
         demo_seed.restore_workspace(bad, tmp_path / "runs" / "run_x")
     assert not (tmp_path / "runs" / "escape.py").exists()
+
+
+class FakeCollection:
+    def __init__(self, documents):
+        self.documents = documents
+
+    async def find_one(self, query, projection=None):
+        return next((d for d in self.documents
+                     if all(d.get(k) == v for k, v in query.items())), None)
+
+
+async def test_if_missing_skips_only_when_both_the_data_and_the_files_are_here(
+    tmp_path, monkeypatch
+):
+    """demo/start.ps1 runs `load --if-missing` on every start; it must reload the
+    moment either half is missing."""
+    data = {"repository_id": "repo_x", "run_id": "run_x"}
+    database = {"repositories": FakeCollection([{"repository_id": "repo_x"}]),
+                "migration_runs": FakeCollection([{"run_id": "run_x"}])}
+    monkeypatch.setattr(get_settings(), "workspace_root", str(tmp_path))
+
+    assert not await demo_seed._already_loaded(database, data)  # no files yet
+    (tmp_path / "runs" / "run_x" / "rev_1").mkdir(parents=True)
+    assert await demo_seed._already_loaded(database, data)
+
+    database["migration_runs"] = FakeCollection([])  # files, but no run in the database
+    assert not await demo_seed._already_loaded(database, data)

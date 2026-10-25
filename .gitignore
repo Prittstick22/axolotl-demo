@@ -39,3 +39,6 @@ Thumbs.db
 
 # Generated chess upload archive
 /demo/chess-input.zip
+
+# demo build: logs from demo/start.ps1 and demo/start.sh
+demo/.logs/

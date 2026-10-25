@@ -45,6 +45,11 @@ the newer PyMongo async corrections in place of the supplied Motor instructions.
 
 ## Quick start
 
+> **In this repository (the demo build), don't use these steps.** Run
+> `powershell -ExecutionPolicy Bypass -File demo\start.ps1` (Windows) or `bash demo/start.sh`
+> (macOS/Linux) instead: see [`demo/DEMO_BUILD.md`](demo/DEMO_BUILD.md). The steps below are the
+> product's, and they use the team's cluster and live Gemini calls.
+
 ```bash
 cp .env.example .env     # then fill MONGODB_URI and GEMINI_API_KEY from the team vault
 ```

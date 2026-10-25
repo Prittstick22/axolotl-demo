@@ -17,7 +17,19 @@ The status chip, plans, runs and Ask answers all name the model **`gemini-4-argo
 
 **Data:** the demo laptop uses its **own local MongoDB**, since it can't reach the team cluster. `demo/seed/` holds a copy of the cluster's chess data: graph, search index with embeddings, behaviour cases, docs purposes, and the recorded run with its files.
 
-## Set up the demo laptop (once)
+## One command
+
+From the repository root, after installing the prerequisites below:
+
+- **Windows:** `powershell -ExecutionPolicy Bypass -File demo\start.ps1`
+- **macOS/Linux:** `bash demo/start.sh`
+
+It does every step in the next section, skips whatever is already done (so it's safe to run again), starts both servers in the background, and opens the browser. Logs go to `demo/.logs/`.
+- **Stop:** `demo\stop.ps1`, or `bash demo/stop.sh`.
+- **Other ports:** `-BackendPort 8001 -FrontendPort 5174`, or `BACKEND_PORT=8001 FRONTEND_PORT=5174`.
+- **Rebuild the sandbox images:** `-RebuildImages`, or `REBUILD_IMAGES=1`.
+
+## Set up the demo laptop by hand (what the script does)
 
 You need Docker Desktop (**started**), [uv](https://docs.astral.sh/uv/), Node 20+ and git.
 
@@ -38,7 +50,7 @@ You need Docker Desktop (**started**), [uv](https://docs.astral.sh/uv/), Node 20
    docker build -f runner/Dockerfile.behaviour --build-arg PYTHON_IMAGE=python:2.7.18-slim -t axolotl-chess-cases:py27  runner/
    docker build -f runner/Dockerfile.behaviour --build-arg PYTHON_IMAGE=python:3.14-slim  -t axolotl-chess-cases:py314 runner/
    ```
-4. **Create `.env` in the repository root:** copy `.env.example`, then set these lines.
+4. **Create `.env` in the repository root:** copy `demo/demo.env.example`, which already has these lines.
    ```bash
    MONGODB_URI=mongodb://localhost:27017/?directConnection=true
    MONGODB_DATABASE=axolotl
@@ -56,7 +68,7 @@ You need Docker Desktop (**started**), [uv](https://docs.astral.sh/uv/), Node 20
    ```bash
    cd backend
    uv sync
-   uv run python -m app.demo_seed load
+   uv run python -m app.demo_seed load      # --if-missing: skip if it's already loaded
    ```
    It prints a count per collection (122 `code_chunks`, 14 `module_docs`, 392 `run_events`, and so on) and the 255 run files. It refuses to run against anything but a local MongoDB.
 
