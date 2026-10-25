@@ -33,7 +33,7 @@ It does every step in the next section, skips whatever is already done (so it's 
 
 You need Docker Desktop (**started**), [uv](https://docs.astral.sh/uv/), Node 20+ and git.
 
-1. **Get this repository:**
+1. **Get this repository,** into an ordinary folder such as `C:\Users\<you>\axolotl-demo`, not a temp folder (see the table at the end):
    ```bash
    git clone https://github.com/Prittstick22/axolotl-demo.git
    cd axolotl-demo
@@ -114,6 +114,7 @@ Open **http://localhost:5173**. All four status chips should be green, and Gemin
 | Every screen errors with 503 | Docker or the MongoDB container isn't running: `docker start axolotl-atlas-local` |
 | The runner chip is red | Build the five images in step 3 |
 | Gemini says `gemini-4-argon` without "replay of…" | `ARGON_REPLAY_FILE` is missing or wrong. It's relative to `backend/`, then restart the backend |
+| The run fails at once with "the baseline captured no behaviour cases" | Docker Desktop isn't sharing the run's files with the sandbox. That happens when the repository is inside a temp folder (seen under `AppData\Local\Temp`). Clone it into an ordinary folder, such as `C:\Users\<you>\axolotl-demo` |
 | A unit blocks with "no turn N for unit:…" | The plan's units don't match the recording. Use chess with **Python 2 to Python 3** |
 | Ask says it answers only the recorded questions | Paste one of the two questions above |
 | `demo_seed load` says "refusing to load" | `MONGODB_URI` isn't the local one from step 4 |

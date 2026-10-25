@@ -17,6 +17,8 @@ Run the one-command start script from the repository root. It is safe to run aga
 - starts the backend (port 8000) and the frontend (port 5173) in the background, logging to `demo/.logs/`;
 - checks the status chips, and opens http://localhost:5173/repos/repo_3852f5968630.
 
+**Run it from a clone in an ordinary folder,** not a temp folder. Under `AppData\Local\Temp`, Docker Desktop doesn't share the run's files with the sandbox, so every run fails at the baseline.
+
 **The demo is up when** all four status chips are green and the Gemini chip reads **`gemini-4-argon (replay of run_c86aff1bea77)`**.
 
 - **Other ports** (for example beside a running product): `-BackendPort 8001 -FrontendPort 5174` on Windows, or `BACKEND_PORT=8001 FRONTEND_PORT=5174` on macOS/Linux.

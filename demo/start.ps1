@@ -135,17 +135,19 @@ New-Item -ItemType Directory -Force $Logs | Out-Null
 # Environment overrides beat .env, so the two servers find each other on any ports.
 $env:FRONTEND_ORIGIN = "http://localhost:$FrontendPort"
 $env:VITE_API_BASE = "http://localhost:$BackendPort/api/v1"
-Start-Process -FilePath (Get-Command uv).Source -WindowStyle Hidden `
-    -WorkingDirectory (Join-Path $Root 'backend') `
-    -ArgumentList 'run', 'uvicorn', 'app.main:app', '--port', "$BackendPort" `
-    -RedirectStandardOutput (Join-Path $Logs 'backend.log') -RedirectStandardError (Join-Path $Logs 'backend.err.log')
-Start-Process -FilePath (Get-Command npm.cmd).Source -WindowStyle Hidden `
-    -WorkingDirectory (Join-Path $Root 'frontend') `
-    -ArgumentList 'run', 'dev', '--', '--port', "$FrontendPort", '--strictPort' `
-    -RedirectStandardOutput (Join-Path $Logs 'frontend.log') -RedirectStandardError (Join-Path $Logs 'frontend.err.log')
+# Through cmd, which writes each server's output to its log. Not Start-Process's own
+# -Redirect* options: they make the servers inherit this script's output handles, so
+# anything reading the script's output (a pipe, an agent's tool) would wait on the
+# servers forever.
+$backendLog = Join-Path $Logs 'backend.log'
+$frontendLog = Join-Path $Logs 'frontend.log'
+Start-Process -FilePath $env:ComSpec -WindowStyle Hidden -WorkingDirectory (Join-Path $Root 'backend') `
+    -ArgumentList '/c', "uv run uvicorn app.main:app --port $BackendPort > `"$backendLog`" 2>&1"
+Start-Process -FilePath $env:ComSpec -WindowStyle Hidden -WorkingDirectory (Join-Path $Root 'frontend') `
+    -ArgumentList '/c', "npm run dev -- --port $FrontendPort --strictPort > `"$frontendLog`" 2>&1"
 
-if (-not (Wait-Http "http://localhost:$BackendPort/api/v1/health" 120)) { Fail "the backend didn't start; see demo\.logs\backend.err.log" }
-if (-not (Wait-Http "http://localhost:$FrontendPort" 120)) { Fail "the frontend didn't start; see demo\.logs\frontend.err.log" }
+if (-not (Wait-Http "http://localhost:$BackendPort/api/v1/health" 120)) { Fail "the backend didn't start; see demo\.logs\backend.log" }
+if (-not (Wait-Http "http://localhost:$FrontendPort" 120)) { Fail "the frontend didn't start; see demo\.logs\frontend.log" }
 
 Step 'Checking the status chips'
 $status = Invoke-RestMethod -Uri "http://localhost:$BackendPort/api/v1/system/status" -TimeoutSec 60
